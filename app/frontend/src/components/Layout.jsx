@@ -32,9 +32,9 @@ const Layout = () => {
           <div className="user-section">
             {user ? (
                 <>
-                    <span className="welcome-text hidden-mobile">
+                    <Link to="/profile" className="welcome-text hidden-mobile">
                         Hello, <strong>{user.name}</strong>
-                    </span>
+                    </Link>
                     <button className="btn-logout" onClick={logout}>
                       Sign Out
                     </button>

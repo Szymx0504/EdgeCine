@@ -1,19 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Clock, Calendar, MapPin, Star, Users, Tag, Heart } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import api from '../api';
 import './MovieModal.css';
 
-export const MovieModal = ({ filmId, onClose }) => {
+export const MovieModal = ({ filmId, onClose, onInteractionChange }) => {
+  const { user } = useAuth();
   const [film, setFilm] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [userLikeId, setUserLikeId] = useState(null);
+  const [likeLoading, setLikeLoading] = useState(false);
+  const [localLikes, setLocalLikes] = useState(0);
+  
+  // Star rating state
+  const [userRating, setUserRating] = useState(0);
+  const [userRatingId, setUserRatingId] = useState(null);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [ratingLoading, setRatingLoading] = useState(false);
 
   useEffect(() => {
     const fetchFilm = async () => {
       try {
         const response = await api.get(`/films/${filmId}`);
         setFilm(response.data);
+        setLocalLikes(response.data.likes || 0);
       } catch (err) {
         setError('Failed to load film details');
       } finally {
@@ -25,6 +37,91 @@ export const MovieModal = ({ filmId, onClose }) => {
       fetchFilm();
     }
   }, [filmId]);
+
+  // Check if user already liked or rated this film
+  useEffect(() => {
+    const checkUserInteractions = async () => {
+      if (!user || !filmId) return;
+      try {
+        const response = await api.get(`/users/${user.id}/interactions`);
+        const likeInteraction = response.data.find(
+          i => i.film_id === filmId && i.interaction_type === 'like'
+        );
+        if (likeInteraction) {
+          setUserLikeId(likeInteraction.id);
+        }
+        
+        // Check for existing rating (rate_1 through rate_5)
+        const ratingInteraction = response.data.find(
+          i => i.film_id === filmId && i.interaction_type.startsWith('rate_')
+        );
+        if (ratingInteraction) {
+          setUserRatingId(ratingInteraction.id);
+          const ratingValue = parseInt(ratingInteraction.interaction_type.split('_')[1]);
+          setUserRating(ratingValue);
+        }
+      } catch (err) {
+        console.error('Failed to check user interactions:', err);
+      }
+    };
+    checkUserInteractions();
+  }, [user, filmId]);
+
+  const handleLike = async () => {
+    if (!user) return;
+    setLikeLoading(true);
+    try {
+      if (userLikeId) {
+        await api.delete(`/interactions/${userLikeId}`);
+        setUserLikeId(null);
+        setLocalLikes(prev => Math.max(0, prev - 1));
+      } else {
+        const response = await api.post('/interactions', {
+          user_id: user.id,
+          film_id: filmId,
+          interaction_type: 'like'
+        });
+        setUserLikeId(response.data.id);
+        setLocalLikes(prev => prev + 1);
+      }
+      if (onInteractionChange) onInteractionChange();
+    } catch (err) {
+      console.error('Failed to toggle like:', err);
+    } finally {
+      setLikeLoading(false);
+    }
+  };
+
+  const handleRating = async (rating) => {
+    if (!user || ratingLoading) return;
+    setRatingLoading(true);
+    try {
+      // If clicking same rating, remove it
+      if (userRating === rating && userRatingId) {
+        await api.delete(`/interactions/${userRatingId}`);
+        setUserRatingId(null);
+        setUserRating(0);
+      } else {
+        // Delete old rating if exists
+        if (userRatingId) {
+          await api.delete(`/interactions/${userRatingId}`);
+        }
+        // Create new rating
+        const response = await api.post('/interactions', {
+          user_id: user.id,
+          film_id: filmId,
+          interaction_type: `rate_${rating}`
+        });
+        setUserRatingId(response.data.id);
+        setUserRating(rating);
+      }
+      if (onInteractionChange) onInteractionChange();
+    } catch (err) {
+      console.error('Failed to set rating:', err);
+    } finally {
+      setRatingLoading(false);
+    }
+  };
 
   // Close on escape key
   useEffect(() => {
@@ -93,13 +190,51 @@ export const MovieModal = ({ filmId, onClose }) => {
                     {film.country}
                   </span>
                 )}
-                {film.likes > 0 && (
+                {localLikes > 0 && (
                   <span className="meta-item likes">
                     <Heart size={16} />
-                    {film.likes} likes
+                    {localLikes} likes
                   </span>
                 )}
               </div>
+              
+              {user && (
+                <div className="interaction-buttons">
+                  <button 
+                    className={`like-button ${userLikeId ? 'liked' : ''}`}
+                    onClick={handleLike}
+                    disabled={likeLoading}
+                  >
+                    <Heart size={18} fill={userLikeId ? 'currentColor' : 'none'} />
+                    {userLikeId ? 'Liked' : 'Like'}
+                  </button>
+                  
+                  <div className="star-rating">
+                    <span className="rating-label">Rate:</span>
+                    <div className="stars-container">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          className={`star-btn ${star <= (hoverRating || userRating) ? 'filled' : ''}`}
+                          onClick={() => handleRating(star)}
+                          onMouseEnter={() => setHoverRating(star)}
+                          onMouseLeave={() => setHoverRating(0)}
+                          disabled={ratingLoading}
+                          title={`Rate ${star} star${star > 1 ? 's' : ''}`}
+                        >
+                          <Star 
+                            size={20} 
+                            fill={star <= (hoverRating || userRating) ? 'currentColor' : 'none'} 
+                          />
+                        </button>
+                      ))}
+                    </div>
+                    {userRating > 0 && (
+                      <span className="rating-value">{userRating}/5</span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="modal-body">

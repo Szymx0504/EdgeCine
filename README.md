@@ -1,8 +1,107 @@
-uvicorn app.backend.main:app --reload
+# NetRecommender
 
-create a .env file in the main folder with the following fields:
-DB_HOST
-DB_NAME
-DB_USER
-DB_PASSWORD
-DB_PORT
+A movie recommender web application built with FastAPI (Python) and React.
+
+## Features
+
+- 🎬 **Browse Top Movies** - See the most liked films in the community
+- 🔍 **Search Films** - Find movies and series by title or description
+- 🤖 **AI Recommendations** - Get personalized suggestions using natural language queries
+- ❤️ **Like Films** - Save your favorite movies and build interaction history
+- 👤 **User Profiles** - Manage your account and view your activity history
+
+## Tech Stack
+
+- **Backend**: Python FastAPI + PostgreSQL
+- **Frontend**: React + Vite
+- **Database**: PostgreSQL with Full-Text Search
+
+## Prerequisites
+
+- Python 3.10+
+- Node.js 18+
+- PostgreSQL 14+
+
+## Setup
+
+### 1. Clone and Configure
+
+Create a `.env` file in the root folder:
+
+```
+DB_HOST=localhost
+DB_NAME=your_database_name
+DB_USER=your_username
+DB_PASSWORD=your_password
+DB_PORT=5432
+```
+
+### 2. Database Setup
+
+Run the SQL scripts in order:
+
+```bash
+psql -d your_database_name -f schema.sql
+psql -d your_database_name -f indexes.sql
+psql -d your_database_name -f views.sql
+psql -d your_database_name -f seed.sql
+```
+
+### 3. Backend
+
+```bash
+pip install fastapi uvicorn psycopg2-binary passlib
+uvicorn app.backend.main:app --reload
+```
+
+### 4. Frontend
+
+```bash
+cd app/frontend
+npm install
+npm run dev
+```
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/movies/top` | Top 10 most liked films |
+| GET | `/films/recommend?q=` | AI-powered recommendations |
+| GET | `/films/search?q=` | Search by title/description |
+| GET | `/films/{id}` | Film details with actors/tags |
+| POST | `/users` | Register new user |
+| POST | `/login` | User login |
+| PUT | `/users/{id}` | Update user name |
+| DELETE | `/users/{id}` | Delete user account |
+| GET | `/users/{id}/interactions` | User's interaction history |
+| POST | `/interactions` | Create interaction (like/view) |
+| DELETE | `/interactions/{id}` | Remove interaction |
+| GET | `/analytics/training-data` | ML training triplets view |
+
+## Project Structure
+
+```
+movieRecommender/
+├── app/
+│   ├── backend/
+│   │   ├── main.py          # FastAPI endpoints
+│   │   ├── config.py        # Database configuration
+│   │   └── schemas.py       # Pydantic models
+│   └── frontend/
+│       └── src/
+│           ├── pages/       # Route components
+│           ├── components/  # Reusable UI components
+│           └── context/     # Auth context
+├── schema.sql               # Database schema
+├── indexes.sql              # Performance indexes
+├── views.sql                # Reporting views
+└── seed.sql                 # Sample data
+```
+
+## Database Design
+
+- **3+ Entities**: users, films, actors, tags, interactions
+- **M:N Relationships**: films_actors, films_tags, users_tags
+- **Indexes**: Title lookup, user interactions FK, full-text search (GIN)
+- **Views**: v_model_training_triplets for ML training data

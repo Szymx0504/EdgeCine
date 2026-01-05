@@ -292,6 +292,32 @@ def delete_user(user_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# --- User Interactions ---
+
+@app.get("/users/{user_id}/interactions")
+def get_user_interactions(user_id: int):
+    """Get all interactions for a user with film details."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        query = """
+            SELECT ui.id, ui.film_id, ui.interaction_type, ui.duration_watched_sec, 
+                   ui.interaction_timestamp, f.title, f.type as film_type
+            FROM user_interactions ui
+            JOIN films f ON ui.film_id = f.id
+            WHERE ui.user_id = %s
+            ORDER BY ui.interaction_timestamp DESC
+        """
+        cur.execute(query, (user_id,))
+        interactions = cur.fetchall()
+        
+        cur.close()
+        conn.close()
+        return interactions
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # --- Interactions CRUD ---
 
 @app.post("/interactions", response_model=InteractionResponse)

@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Home from './pages/Home';
 import Recommend from './pages/Recommend';
 import Search from './pages/Search';
+import Profile from './pages/Profile';
 
 const CheckAuth = ({ children }) => {
   const { loading } = useAuth();
@@ -21,6 +22,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/recommend" element={<Recommend />} />
         <Route path="/search" element={<Search />} />
+        <Route path="/profile" element={<Profile />} />
       </Route>
     </Routes>
   );
