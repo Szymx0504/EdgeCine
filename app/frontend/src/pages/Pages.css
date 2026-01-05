@@ -1,0 +1,115 @@
+/* Pages.css */
+
+.hero-section {
+  padding: 60px 0 40px;
+  position: relative;
+  margin-bottom: 40px;
+}
+
+
+.hero-badge {
+  display: inline-block;
+  padding: 6px 14px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 100px;
+  color: var(--accent-color);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 24px;
+}
+
+.page-title {
+  font-size: 3.5rem;
+  font-weight: 850;
+  margin-bottom: 20px;
+  letter-spacing: -0.04em;
+  line-height: 1.2;
+  padding-bottom: 0.1em;
+  background: linear-gradient(135deg, #fff 0%, #a1a1a1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.page-description {
+  color: var(--text-secondary);
+  font-size: 1.25rem;
+  font-weight: 450;
+  max-width: 650px;
+  line-height: 1.6;
+}
+
+.movies-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 32px;
+  padding-bottom: 80px;
+}
+
+/* Search & Recommend Inputs */
+.search-container {
+  margin-bottom: 60px;
+  margin-top: -20px;
+}
+
+.search-input-wrapper {
+  position: relative;
+  max-width: 700px;
+  transition: transform 0.2s ease;
+}
+
+.search-input-wrapper:focus-within {
+  transform: translateY(-2px);
+}
+
+.search-icon {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+  pointer-events: none;
+  transition: color 0.2s ease;
+}
+
+.search-input-wrapper:focus-within .search-icon {
+  color: var(--accent-color);
+}
+
+.search-input {
+  width: 100%;
+  padding: 20px 24px 20px 60px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  background-color: var(--bg-tertiary);
+  box-shadow: 0 15px 40px -12px rgba(59, 130, 246, 0.15), 0 0 0 1px var(--accent-color);
+}
+
+.loading-state, .error-state, .empty-state {
+  text-align: center;
+  padding: 100px 0;
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+}
+
+.error-state {
+  color: #ef4444;
+}
+
+@media (max-width: 768px) {
+  .page-title {
+    font-size: 2.75rem;
+  }
+}
+

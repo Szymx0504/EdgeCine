@@ -1,0 +1,212 @@
+/* Recommend.css */
+
+.recommend-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.recommend-hero {
+  padding: 80px 0 60px;
+  text-align: left;
+  animation: fadeIn 0.8s ease-out;
+}
+
+.ai-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 100px;
+  color: var(--accent-color);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 24px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ai-badge::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background: var(--accent-color);
+  border-radius: 50%;
+  box-shadow: 0 0 10px var(--accent-glow);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.5; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.recommend-title {
+  font-size: clamp(2.5rem, 8vw, 4rem);
+  font-weight: 850;
+  margin-bottom: 24px;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+  background: linear-gradient(135deg, #fff 0%, #a1a1a1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.recommend-description {
+  color: var(--text-secondary);
+  font-size: 1.25rem;
+  font-weight: 450;
+  max-width: 700px;
+  line-height: 1.6;
+  margin-bottom: 48px;
+}
+
+.recommend-search-wrapper {
+  position: relative;
+  max-width: 800px;
+  margin-bottom: 80px;
+  animation: fadeIn 1s ease-out;
+}
+
+.recommend-search-form {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: rgba(26, 26, 26, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 6px;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.recommend-search-form:focus-within {
+  border-color: var(--accent-color);
+  background: rgba(30, 30, 30, 0.8);
+  box-shadow: 0 25px 60px -15px rgba(59, 130, 246, 0.2), 0 0 0 1px var(--accent-color);
+  transform: translateY(-2px);
+}
+
+.search-input-icon {
+  margin-left: 18px;
+  color: var(--text-secondary);
+  transition: color 0.3s ease;
+}
+
+.recommend-search-form:focus-within .search-input-icon {
+  color: var(--accent-color);
+}
+
+.recommend-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 18px 20px;
+  color: var(--text-primary);
+  font-size: 1.15rem;
+  font-family: inherit;
+  outline: none;
+}
+
+.recommend-input::placeholder {
+  color: #555;
+  transition: color 0.3s ease;
+}
+
+.recommend-input:focus::placeholder {
+  color: #777;
+}
+
+.recommend-submit {
+  padding: 14px 28px;
+  background: var(--accent-color);
+  color: white;
+  font-weight: 600;
+  border-radius: 14px;
+  transition: all 0.3s ease;
+  margin-right: 2px;
+}
+
+.recommend-submit:hover {
+  background: #2563eb;
+  transform: scale(1.02);
+}
+
+.recommend-submit:active {
+  transform: scale(0.98);
+}
+
+/* Loading State Enhancement */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100px 0;
+  gap: 24px;
+  color: var(--text-secondary);
+  animation: fadeIn 0.5s ease;
+}
+
+.loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid rgba(59, 130, 246, 0.1);
+  border-top-color: var(--accent-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-size: 1.1rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* Grid Layout */
+.recommend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 32px;
+  padding-bottom: 100px;
+  animation: fadeIn 0.8s ease-out;
+}
+
+/* Empty State */
+.recommend-empty {
+  text-align: center;
+  padding: 100px 20px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed var(--border-color);
+  border-radius: 24px;
+  color: var(--text-secondary);
+}
+
+.recommend-empty h3 {
+  color: var(--text-primary);
+  margin-bottom: 12px;
+  font-size: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .recommend-hero {
+    padding: 60px 0 40px;
+  }
+  
+  .recommend-search-wrapper {
+    margin-bottom: 60px;
+  }
+  
+  .recommend-submit {
+    padding: 12px 20px;
+  }
+}
