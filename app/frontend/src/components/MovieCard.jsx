@@ -15,16 +15,16 @@ export const MovieCard = ({ movie, onClick }) => {
                 {(movie.rank * 100).toFixed(0)}% Match
               </span>
             ) : null}
-            {movie.avg_rating && (
+            {movie.avg_rating ? (
                <span className="match-score rating-score">
                  <Star size={12} fill="currentColor" /> {movie.avg_rating}
                </span>
-            )}
-            {movie.likes > 0 && (
+            ) : null}
+            {movie.likes > 0 ? (
               <span className="match-score like-score">
                 ♥ {movie.likes}
               </span>
-            )}
+            ) : null}
           </div>
         </div>
         

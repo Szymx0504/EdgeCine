@@ -69,16 +69,32 @@ def recommend_films(q: str = Query(..., min_length=1), skip: int = 0, limit: int
         cur = conn.cursor()
 
         # First try: websearch_to_tsquery (AND logic by default)
+        # Ranking formula:
+        # 1. Base semantic score: ts_rank(...)
+        # 2. Popularity boost: log(likes + 1) * 0.1  (log scale to prevent super-popular items from dominating)
+        # 3. Quality boost: (avg_rating - 3.0) * 0.1 (only bonus for ratings > 3.0)
         query = """
+            WITH stats AS (
+                SELECT 
+                    f.id,
+                    (SELECT COUNT(*) FROM user_interactions ui WHERE ui.film_id = f.id AND ui.interaction_type = 'like') as likes,
+                    (SELECT AVG(CAST(SPLIT_PART(interaction_type, '_', 2) AS INTEGER))
+                     FROM user_interactions ui 
+                     WHERE ui.film_id = f.id AND ui.interaction_type LIKE 'rate_%%') as avg_rating
+                FROM films f
+                WHERE f.search_vector @@ websearch_to_tsquery('english', %s)
+            )
             SELECT 
                 f.id, f.title, f.release_year, f.type, f.description,
-                ts_rank(f.search_vector, websearch_to_tsquery('english', %s)) as rank,
-                (SELECT COUNT(*) FROM user_interactions ui WHERE ui.film_id = f.id AND ui.interaction_type = 'like') as likes,
-                (SELECT ROUND(AVG(CAST(SPLIT_PART(interaction_type, '_', 2) AS INTEGER)), 1) 
-                 FROM user_interactions ui 
-                 WHERE ui.film_id = f.id AND ui.interaction_type LIKE 'rate_%%') as avg_rating
+                (
+                    ts_rank(f.search_vector, websearch_to_tsquery('english', %s)) +
+                    (LN(COALESCE(s.likes, 0) + 1) * 0.1) +
+                    (CASE WHEN COALESCE(s.avg_rating, 0) > 3.0 THEN (s.avg_rating - 3.0) * 0.1 ELSE 0 END)
+                ) as rank,
+                COALESCE(s.likes, 0) as likes,
+                ROUND(COALESCE(s.avg_rating, 0), 1) as avg_rating
             FROM films f
-            WHERE f.search_vector @@ websearch_to_tsquery('english', %s)
+            JOIN stats s ON f.id = s.id
             ORDER BY rank DESC
             LIMIT %s OFFSET %s;
         """
@@ -93,15 +109,27 @@ def recommend_films(q: str = Query(..., min_length=1), skip: int = 0, limit: int
                 # Build OR query: word1 | word2 | word3
                 or_query = " | ".join(words)
                 fallback_query = """
+                    WITH stats AS (
+                        SELECT 
+                            f.id,
+                            (SELECT COUNT(*) FROM user_interactions ui WHERE ui.film_id = f.id AND ui.interaction_type = 'like') as likes,
+                            (SELECT AVG(CAST(SPLIT_PART(interaction_type, '_', 2) AS INTEGER))
+                             FROM user_interactions ui 
+                             WHERE ui.film_id = f.id AND ui.interaction_type LIKE 'rate_%%') as avg_rating
+                        FROM films f
+                        WHERE f.search_vector @@ to_tsquery('english', %s)
+                    )
                     SELECT 
                         f.id, f.title, f.release_year, f.type, f.description,
-                        ts_rank(f.search_vector, to_tsquery('english', %s)) as rank,
-                        (SELECT COUNT(*) FROM user_interactions ui WHERE ui.film_id = f.id AND ui.interaction_type = 'like') as likes,
-                        (SELECT ROUND(AVG(CAST(SPLIT_PART(interaction_type, '_', 2) AS INTEGER)), 1) 
-                         FROM user_interactions ui 
-                         WHERE ui.film_id = f.id AND ui.interaction_type LIKE 'rate_%%') as avg_rating
+                        (
+                            ts_rank(f.search_vector, to_tsquery('english', %s)) +
+                            (LN(COALESCE(s.likes, 0) + 1) * 0.1) +
+                            (CASE WHEN COALESCE(s.avg_rating, 0) > 3.0 THEN (s.avg_rating - 3.0) * 0.1 ELSE 0 END)
+                        ) as rank,
+                        COALESCE(s.likes, 0) as likes,
+                        ROUND(COALESCE(s.avg_rating, 0), 1) as avg_rating
                     FROM films f
-                    WHERE f.search_vector @@ to_tsquery('english', %s)
+                    JOIN stats s ON f.id = s.id
                     ORDER BY rank DESC
                     LIMIT %s OFFSET %s;
                 """

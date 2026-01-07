@@ -30,33 +30,37 @@
 .card-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  flex-wrap: wrap; /* Allow wrapping if too many tags */
+  gap: 12px; /* Add vertical gap for wrapped items */
   margin-bottom: 20px;
 }
 
 .movie-type {
-  font-size: 0.7rem;
+  font-size: 0.65rem; /* Slightly smaller for compactness */
   text-transform: uppercase;
   letter-spacing: 0.12em;
   font-weight: 800;
   color: var(--text-secondary);
   background: rgba(255, 255, 255, 0.03);
-  padding: 6px 14px;
+  padding: 4px 10px; /* Reduced padding */
   border-radius: 100px;
   border: 1px solid rgba(255, 255, 255, 0.08);
+  white-space: nowrap; /* Prevent word break within badge */
 }
 
 .match-score {
-  font-size: 0.85rem;
+  font-size: 0.75rem; /* Slightly smaller */
   font-weight: 800;
   color: #10b981;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
+  gap: 4px; /* Reduced gap */
+  padding: 4px 10px; /* Reduced padding */
   background: rgba(16, 185, 129, 0.1);
   border-radius: 100px;
   border: 1px solid rgba(16, 185, 129, 0.2);
+  white-space: nowrap;
 }
 
 .match-score.like-score {
@@ -73,8 +77,10 @@
 
 .stats-wrapper {
   display: flex;
-  gap: 8px;
+  gap: 6px; /* Tighten gap */
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .movie-title {
