@@ -54,7 +54,7 @@ def get_top_movies():
         raise HTTPException(status_code=500, detail=str(e))
     
 @app.get("/films/recommend")
-def recommend_films(q: str = Query(..., min_length=1)):
+def recommend_films(q: str = Query(..., min_length=1), skip: int = 0, limit: int = Query(20, le=100)):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -68,10 +68,10 @@ def recommend_films(q: str = Query(..., min_length=1)):
             FROM films 
             WHERE search_vector @@ websearch_to_tsquery('english', %s)
             ORDER BY rank DESC
-            LIMIT 20;
+            LIMIT %s OFFSET %s;
         """
 
-        cur.execute(query, (q, q))
+        cur.execute(query, (q, q, limit, skip))
         rows = cur.fetchall()
         
         results = []
@@ -93,7 +93,7 @@ def recommend_films(q: str = Query(..., min_length=1)):
         raise HTTPException(status_code=500, detail="Database error during recommendation")
 
 @app.get("/films/search")
-def search_films(q: str = Query(None, min_length=1)):
+def search_films(q: str = Query(None, min_length=1), skip: int = 0, limit: int = Query(20, le=100)):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -103,11 +103,11 @@ def search_films(q: str = Query(None, min_length=1)):
             FROM films 
             WHERE title ILIKE %s OR description ILIKE %s
             ORDER BY release_year DESC
-            LIMIT 20;
+            LIMIT %s OFFSET %s;
         """
 
         search_param = f"%{q}%"
-        cur.execute(query, (search_param, search_param))
+        cur.execute(query, (search_param, search_param, limit, skip))
         
         rows = cur.fetchall()
         

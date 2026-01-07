@@ -101,7 +101,15 @@ movieRecommender/
 
 ## Database Design
 
-- **3+ Entities**: users, films, actors, tags, interactions
-- **M:N Relationships**: films_actors, films_tags, users_tags
-- **Indexes**: Title lookup, user interactions FK, full-text search (GIN)
 - **Views**: v_model_training_triplets for ML training data
+
+## M2 Conceptual Design
+*(See `docs/M2_NOTES.md` and `diagrams/` folder)*
+
+## Reflections
+Building this application highlighted the challenge of bridging a normalized relational schema with a modern object-oriented frontend. Managing M:N relationships (like Tags) required careful API design. The use of Database Views proved excellent for decoupling the complex "interaction scoring" logic from the application code, allowing the backend to remain lean.
+
+## Academic Integrity & AI Use
+This project was developed with the assistance of AI tools as per course policy.
+- **ChatGPT/Antigravity**: Used for scaffolding the React frontend structure, generating dummy seed data (movies/actors), and troubleshooting CSS flexbox issues.
+- **Verification**: All SQL queries and functional logic were human-reviewed and tested against the PostgreSQL database.
