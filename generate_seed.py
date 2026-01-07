@@ -15,9 +15,9 @@ for i, actor in enumerate(all_actors):
     actor_id = i + 1
     actor_ids_map[actor] = actor_id # to make use of it in other tables
     split = actor.split(" ", 1)
-    # Truncate to 64 chars to fit schema
-    name = split[0].replace("'", "''")[:64]
-    surname = (split[1].replace("'", "''") if len(split) > 1 else "N/A")[:64]
+    # Truncate to 255 chars to fit schema
+    name = split[0].replace("'", "''")[:255]
+    surname = (split[1].replace("'", "''") if len(split) > 1 else "N/A")[:255]
     query = f"INSERT INTO actors (id, name, surname) VALUES ({actor_id}, '{name}', '{surname}');"
     actor_inserts.append(query)
 
@@ -53,7 +53,7 @@ tags_inserts = []
 for i, tag in enumerate(all_tags):
     tag_id = i + 1
     tags_ids_map[tag] = tag_id
-    tag_clean = tag.replace("'", "''")[:64]
+    tag_clean = tag.replace("'", "''")[:255]
     query = f"INSERT INTO tags (id, name) VALUES ({tag_id}, '{tag_clean}');"
     tags_inserts.append(query)
 
@@ -94,8 +94,8 @@ for index, row in df.iterrows():
             films_actors_inserts.append(query)
     
     if pd.notna(row["listed_in"]):
-        for tag in row["listed_in"].split(","):
-            tag = tag.strip()
+        unique_tags = set([t.strip() for t in row["listed_in"].split(",")])
+        for tag in unique_tags:
             tag_id = tags_ids_map[tag]
             query = f"INSERT INTO films_tags (film_id, tag_id) VALUES ({film_id}, {tag_id});"
             films_tags_inserts.append(query)
@@ -121,7 +121,8 @@ for tag_name, t_id in tags_ids_map.items():
     tag_to_films[t_id] = df[df['listed_in'].str.contains(tag_name, na=False)].index + 1
 
 for u_id in range(1, 201):
-    full_name = f"{random.choice(names)} {random.choice(surnames)}"
+    # Append ID to ensure unique usernames
+    full_name = f"{random.choice(names)} {random.choice(surnames)} {u_id}"
     password = "".join(random.choices(string.ascii_letters + string.digits, k=10))
     password_hash = hasher.hash_password(password)
     user_inserts.append(f"INSERT INTO users (id, name, password_hash) VALUES ({u_id}, '{full_name}', '{password_hash}');")
@@ -144,27 +145,24 @@ for u_id in range(1, 201):
     # target_films = list(set(hits_to_watch + others_to_watch))
 
     for f_id in final_selection:
-        possible_actions = []
-        r = random.random()
-        if r < 0.2:
-            possible_actions = [('skip', random.randint(10, 120))]
+        # 30% chance of like, 70% chance of rating
+        if random.random() < 0.3:
+            act_type = 'like'
         else:
-            possible_actions.append(('add to list', 0))
-            if random.random() > 0.3:
-                possible_actions.append(('view', random.randint(600, 7200)))
-                if random.random() > 0.5:
-                    possible_actions.append(('like', 0))
+            rating = random.randint(1, 5)
+            act_type = f'rate_{rating}'
 
         base_time = datetime.now() - timedelta(days=random.randint(1, 30))
+        # Add some random variation to timestamp
+        timestamp = (base_time + timedelta(minutes=random.randint(0, 1000))).strftime('%Y-%m-%d %H:%M:%S')
         
-        for i, (act_type, dur) in enumerate(possible_actions):
-            timestamp = (base_time + timedelta(minutes=i*30)).strftime('%Y-%m-%d %H:%M:%S')
-            query = f"INSERT INTO user_interactions (user_id, film_id, interaction_type, duration_watched_sec, interaction_timestamp) " \
-                    f"VALUES ({u_id}, {f_id}, '{act_type}', {dur}, '{timestamp}');"
-            user_interactions_inserts.append(query)
+        query = f"INSERT INTO user_interactions (user_id, film_id, interaction_type, interaction_timestamp) " \
+                f"VALUES ({u_id}, {f_id}, '{act_type}', '{timestamp}');"
+        user_interactions_inserts.append(query)
 
 
-with open("seed.sql", "w", encoding="utf-8") as output:
+with open("sql/seed.sql", "w", encoding="utf-8") as output:
+    output.write("\\encoding UTF8\n\n")
     output.write("BEGIN;\n\n")
     output.write("\n".join(actor_inserts) + "\n")
     output.write("\n".join(movie_inserts) + "\n")

@@ -14,6 +14,17 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    
+    // Client-side validation
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+    if (name.length < 2) {
+      setError('Username must be at least 2 characters');
+      return;
+    }
+    
     try {
       if (isLogin) {
         await login(name, password);
@@ -24,8 +35,18 @@ const Login = () => {
       }
       navigate('/');
     } catch (err) {
-        console.error(err);
-      setError(err.response?.data?.detail || 'An error occurred');
+      console.error(err);
+      const detail = err.response?.data?.detail;
+      
+      // Handle Pydantic validation errors (array format)
+      if (Array.isArray(detail)) {
+        const messages = detail.map(d => d.msg).join('. ');
+        setError(messages);
+      } else if (typeof detail === 'string') {
+        setError(detail);
+      } else {
+        setError('An error occurred');
+      }
     }
   };
 

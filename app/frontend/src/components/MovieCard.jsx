@@ -1,4 +1,4 @@
-import React from 'react';
+import { Star } from 'lucide-react';
 import './MovieCard.css';
 
 export const MovieCard = ({ movie, onClick }) => {
@@ -9,15 +9,23 @@ export const MovieCard = ({ movie, onClick }) => {
           <span className="movie-type">
             {movie.type}
           </span>
-          {movie.rank ? (
-            <span className="match-score">
-              {(movie.rank * 100).toFixed(0)}% Match
-            </span>
-          ) : movie.likes ? (
-            <span className="match-score like-score">
-              ♥ {movie.likes}
-            </span>
-          ) : null}
+          <div className="stats-wrapper">
+            {movie.rank ? (
+              <span className="match-score">
+                {(movie.rank * 100).toFixed(0)}% Match
+              </span>
+            ) : null}
+            {movie.avg_rating && (
+               <span className="match-score rating-score">
+                 <Star size={12} fill="currentColor" /> {movie.avg_rating}
+               </span>
+            )}
+            {movie.likes > 0 && (
+              <span className="match-score like-score">
+                ♥ {movie.likes}
+              </span>
+            )}
+          </div>
         </div>
         
         <h3 className="movie-title">

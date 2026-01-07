@@ -41,10 +41,10 @@ DB_PORT=5432
 Run the SQL scripts in order:
 
 ```bash
-psql -d your_database_name -f schema.sql
-psql -d your_database_name -f indexes.sql
-psql -d your_database_name -f views.sql
-psql -d your_database_name -f seed.sql
+psql -h localhost -U postgres -d your_database_name -f sql/schema.sql
+psql -h localhost -U postgres -d your_database_name -f sql/indexes.sql
+psql -h localhost -U postgres -d your_database_name -f sql/views.sql
+psql -h localhost -U postgres -d your_database_name -f sql/seed.sql
 ```
 
 ### 3. Backend

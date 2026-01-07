@@ -122,6 +122,10 @@
   color: #ec4899;
 }
 
+.meta-item.rating {
+  color: #fbbf24;
+}
+
 .modal-body {
   padding: 30px 40px 40px;
 }

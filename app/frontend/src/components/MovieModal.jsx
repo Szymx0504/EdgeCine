@@ -196,6 +196,11 @@ export const MovieModal = ({ filmId, onClose, onInteractionChange }) => {
                     {localLikes} likes
                   </span>
                 )}
+                {film.avg_rating && (
+                  <span className="meta-item rating">
+                    <Star size={16} fill="currentColor" /> {film.avg_rating}
+                  </span>
+                )}
               </div>
               
               {user && (

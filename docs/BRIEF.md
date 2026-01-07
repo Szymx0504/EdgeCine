@@ -21,7 +21,7 @@
 3. **Interactions**:
    - A user can have many interactions with films.
    - A film can have many interactions from users.
-   - An interaction is of a specific type ('view', 'like', 'add_to_list', 'skip', 'rate_1'...'rate_5').
+   - An interaction is of a specific type ('like', 'rate_1'...'rate_5').
    - A user cannot have multiple interactions of the same type for the same film (e.g., cannot "like" twice).
 4. **Tags**: Films can be associated with multiple tags (M:N).
 5. **Actors**: Films can be associated with multiple actors (M:N).

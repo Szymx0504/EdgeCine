@@ -3,7 +3,7 @@
 drop table if exists users_tags;
 drop table if exists films_actors;
 drop table if exists films_tags;
-drop table if exists user_interactions;
+drop table if exists user_interactions cascade;
 
 drop table if exists users cascade;
 -- cascade should handle dependent foreign keys, but explicit drops above are safer
@@ -15,13 +15,13 @@ drop table if exists actors cascade;
 
 create table users(
 	id serial primary key,
-	name varchar(64) not null,
+	name varchar(64) not null unique,
 	password_hash varchar(255) not null
 );
 
 create table tags(
 	id serial primary key,
-	name varchar(64) not null unique
+	name varchar(255) not null unique
 );
 
 create table users_tags(
@@ -33,7 +33,6 @@ create table users_tags(
 	foreign key(tag_id) references tags(id) on delete cascade
 );
 
--- Movies and Series must be created BEFORE Films because Films references them
 create table movies(
 	id serial primary key,
 	duration_minutes int,
@@ -85,8 +84,8 @@ FOR EACH ROW EXECUTE FUNCTION films_search_vector_update();
 
 create table actors(
 	id serial primary key,
-	name varchar(64) not null,
-	surname varchar(64) not null
+	name varchar(255) not null,
+	surname varchar(255) not null
 );
 
 create table films_actors(
@@ -111,8 +110,7 @@ create table user_interactions(
 	id bigserial primary key,
 	user_id int not null,
 	film_id int not null,
-	interaction_type varchar(16) not null, -- view, like, add to list, skip
-	duration_watched_sec int,
+	interaction_type varchar(16) not null, -- like, rate_1, rate_2, rate_3, rate_4, rate_5
 	interaction_timestamp timestamp with time zone default current_timestamp,
 
 	foreign key(user_id) references users(id) on delete cascade,

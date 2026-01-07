@@ -35,13 +35,22 @@ def get_top_movies():
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
         query = """
-            SELECT f.id, f.title, COUNT(ui.id) as likes
+            SELECT 
+                f.id, 
+                f.title, 
+                COUNT(CASE WHEN ui.interaction_type = 'like' THEN 1 END) as likes,
+                ROUND(AVG(
+                    CASE 
+                        WHEN ui.interaction_type LIKE 'rate_%' 
+                        THEN CAST(SPLIT_PART(ui.interaction_type, '_', 2) AS INTEGER) 
+                        ELSE NULL 
+                    END
+                ), 1) as avg_rating
             FROM films f
-            JOIN user_interactions ui ON f.id = ui.film_id
-            WHERE ui.interaction_type = 'like'
+            LEFT JOIN user_interactions ui ON f.id = ui.film_id
             GROUP BY f.id
-            ORDER BY likes DESC
-            LIMIT 10;
+            ORDER BY likes DESC, avg_rating DESC
+            LIMIT 20;
         """
 
         cur.execute(query)
@@ -59,20 +68,45 @@ def recommend_films(q: str = Query(..., min_length=1), skip: int = 0, limit: int
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # Websearch to tsquery parses "natural" queries like "action movies with brad pitt"
-        # ts_rank sorts by relevance
+        # First try: websearch_to_tsquery (AND logic by default)
         query = """
             SELECT 
-                id, title, release_year, type, description,
-                ts_rank(search_vector, websearch_to_tsquery('english', %s)) as rank
-            FROM films 
-            WHERE search_vector @@ websearch_to_tsquery('english', %s)
+                f.id, f.title, f.release_year, f.type, f.description,
+                ts_rank(f.search_vector, websearch_to_tsquery('english', %s)) as rank,
+                (SELECT COUNT(*) FROM user_interactions ui WHERE ui.film_id = f.id AND ui.interaction_type = 'like') as likes,
+                (SELECT ROUND(AVG(CAST(SPLIT_PART(interaction_type, '_', 2) AS INTEGER)), 1) 
+                 FROM user_interactions ui 
+                 WHERE ui.film_id = f.id AND ui.interaction_type LIKE 'rate_%%') as avg_rating
+            FROM films f
+            WHERE f.search_vector @@ websearch_to_tsquery('english', %s)
             ORDER BY rank DESC
             LIMIT %s OFFSET %s;
         """
 
         cur.execute(query, (q, q, limit, skip))
         rows = cur.fetchall()
+        
+        # Fallback: if no results, try OR logic with plainto_tsquery on each word
+        if not rows:
+            words = [w.strip() for w in q.split() if len(w.strip()) >= 2]
+            if words:
+                # Build OR query: word1 | word2 | word3
+                or_query = " | ".join(words)
+                fallback_query = """
+                    SELECT 
+                        f.id, f.title, f.release_year, f.type, f.description,
+                        ts_rank(f.search_vector, to_tsquery('english', %s)) as rank,
+                        (SELECT COUNT(*) FROM user_interactions ui WHERE ui.film_id = f.id AND ui.interaction_type = 'like') as likes,
+                        (SELECT ROUND(AVG(CAST(SPLIT_PART(interaction_type, '_', 2) AS INTEGER)), 1) 
+                         FROM user_interactions ui 
+                         WHERE ui.film_id = f.id AND ui.interaction_type LIKE 'rate_%%') as avg_rating
+                    FROM films f
+                    WHERE f.search_vector @@ to_tsquery('english', %s)
+                    ORDER BY rank DESC
+                    LIMIT %s OFFSET %s;
+                """
+                cur.execute(fallback_query, (or_query, or_query, limit, skip))
+                rows = cur.fetchall()
         
         results = []
         for r in rows:
@@ -82,7 +116,9 @@ def recommend_films(q: str = Query(..., min_length=1), skip: int = 0, limit: int
                 "year": r[2],
                 "type": r[3],
                 "description": r[4],
-                "rank": r[5]
+                "rank": r[5],
+                "likes": r[6],
+                "avg_rating": r[7]
             })
         
         cur.close()
@@ -93,23 +129,73 @@ def recommend_films(q: str = Query(..., min_length=1), skip: int = 0, limit: int
         raise HTTPException(status_code=500, detail="Database error during recommendation")
 
 @app.get("/films/search")
-def search_films(q: str = Query(None, min_length=1), skip: int = 0, limit: int = Query(20, le=100)):
+def search_films(query: str = Query(None, min_length=1), skip: int = 0, limit: int = Query(20, le=100)):
+    """
+    Search films by title or description.
+    Handles multi-word queries with fallback:
+    1. Try full-text search with AND (all words must match)
+    2. If no results, fallback to OR (any word matches)
+    """
+    if not query:
+        return []
+    
     try:
         conn = get_db_connection()
         cur = conn.cursor()
 
-        query = """
-            SELECT id, title, release_year, type, description 
-            FROM films 
-            WHERE title ILIKE %s OR description ILIKE %s
-            ORDER BY release_year DESC
+        # Split query into words and filter out very short ones
+        words = [w.strip() for w in query.split() if len(w.strip()) >= 2]
+        
+        if not words:
+            return []
+
+        # Build the full-text search query using PostgreSQL tsquery
+        # First try: AND all words together
+        ts_query_and = " & ".join(words)
+        
+        query_fts = """
+            SELECT 
+                f.id, f.title, f.release_year, f.type, f.description,
+                (SELECT COUNT(*) FROM user_interactions ui WHERE ui.film_id = f.id AND ui.interaction_type = 'like') as likes,
+                (SELECT ROUND(AVG(CAST(SPLIT_PART(interaction_type, '_', 2) AS INTEGER)), 1) 
+                 FROM user_interactions ui 
+                 WHERE ui.film_id = f.id AND ui.interaction_type LIKE 'rate_%%') as avg_rating,
+                ts_rank(f.search_vector, plainto_tsquery('english', %s)) as rank
+            FROM films f
+            WHERE f.search_vector @@ plainto_tsquery('english', %s)
+            ORDER BY rank DESC, f.release_year DESC
             LIMIT %s OFFSET %s;
         """
-
-        search_param = f"%{q}%"
-        cur.execute(query, (search_param, search_param, limit, skip))
         
+        cur.execute(query_fts, (query, query, limit, skip))
         rows = cur.fetchall()
+        
+        # Fallback: if no FTS results, try ILIKE with OR logic on each word
+        if not rows:
+            conditions = []
+            params = []
+            for word in words:
+                conditions.append("(f.title ILIKE %s OR f.description ILIKE %s)")
+                params.extend([f"%{word}%", f"%{word}%"])
+            
+            where_clause = " OR ".join(conditions)
+            
+            query_fallback = f"""
+                SELECT 
+                    f.id, f.title, f.release_year, f.type, f.description,
+                    (SELECT COUNT(*) FROM user_interactions ui WHERE ui.film_id = f.id AND ui.interaction_type = 'like') as likes,
+                    (SELECT ROUND(AVG(CAST(SPLIT_PART(interaction_type, '_', 2) AS INTEGER)), 1) 
+                     FROM user_interactions ui 
+                     WHERE ui.film_id = f.id AND ui.interaction_type LIKE 'rate_%%') as avg_rating,
+                    0 as rank
+                FROM films f
+                WHERE {where_clause}
+                ORDER BY f.release_year DESC
+                LIMIT %s OFFSET %s;
+            """
+            params.extend([limit, skip])
+            cur.execute(query_fallback, tuple(params))
+            rows = cur.fetchall()
         
         results = []
         for r in rows:
@@ -118,7 +204,9 @@ def search_films(q: str = Query(None, min_length=1), skip: int = 0, limit: int =
                 "title": r[1],
                 "year": r[2],
                 "type": r[3],
-                "description": r[4]
+                "description": r[4],
+                "likes": r[5],
+                "avg_rating": r[6]
             })
         
         cur.close()
@@ -169,12 +257,23 @@ def get_film_details(film_id: int):
         """, (film_id,))
         tags = [row['name'] for row in cur.fetchall()]
         
-        # Get like count
+        # Get like count and average rating
         cur.execute("""
-            SELECT COUNT(*) as likes FROM user_interactions 
-            WHERE film_id = %s AND interaction_type = 'like'
+            SELECT 
+                COUNT(CASE WHEN interaction_type = 'like' THEN 1 END) as likes,
+                ROUND(AVG(
+                    CASE 
+                        WHEN interaction_type LIKE 'rate_%%' 
+                        THEN CAST(SPLIT_PART(interaction_type, '_', 2) AS INTEGER) 
+                        ELSE NULL 
+                    END
+                ), 1) as avg_rating
+            FROM user_interactions 
+            WHERE film_id = %s
         """, (film_id,))
-        likes = cur.fetchone()['likes']
+        stats = cur.fetchone()
+        likes = stats['likes']
+        avg_rating = stats['avg_rating']
         
         cur.close()
         conn.close()
@@ -195,12 +294,14 @@ def get_film_details(film_id: int):
             "is_miniseries": film['is_miniseries'],
             "actors": actors,
             "tags": tags,
-            "likes": likes
+            "likes": likes,
+            "avg_rating": avg_rating
         }
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 # --- Users CRUD ---
@@ -221,6 +322,8 @@ def create_user(user: UserCreate):
         cur.close()
         conn.close()
         return new_user
+    except psycopg2.errors.UniqueViolation:
+        raise HTTPException(status_code=400, detail="Username already exists")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -302,7 +405,7 @@ def get_user_interactions(user_id: int):
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
         query = """
-            SELECT ui.id, ui.film_id, ui.interaction_type, ui.duration_watched_sec, 
+            SELECT ui.id, ui.film_id, ui.interaction_type, 
                    ui.interaction_timestamp, f.title, f.type as film_type
             FROM user_interactions ui
             JOIN films f ON ui.film_id = f.id
@@ -327,15 +430,14 @@ def create_interaction(interaction: InteractionCreate):
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
         query = """
-            INSERT INTO user_interactions (user_id, film_id, interaction_type, duration_watched_sec) 
-            VALUES (%s, %s, %s, %s) 
-            RETURNING id, user_id, film_id, interaction_type, duration_watched_sec, interaction_timestamp
+            INSERT INTO user_interactions (user_id, film_id, interaction_type) 
+            VALUES (%s, %s, %s) 
+            RETURNING id, user_id, film_id, interaction_type, interaction_timestamp
         """
         cur.execute(query, (
             interaction.user_id, 
             interaction.film_id, 
-            interaction.interaction_type, 
-            interaction.duration_watched_sec
+            interaction.interaction_type
         ))
         new_interaction = cur.fetchone()
         
@@ -344,6 +446,8 @@ def create_interaction(interaction: InteractionCreate):
         conn.close()
         return new_interaction
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.put("/interactions/{interaction_id}", response_model=InteractionResponse)
@@ -358,15 +462,11 @@ def update_interaction(interaction_id: int, interaction: InteractionUpdate):
         if interaction.interaction_type is not None:
             update_fields.append("interaction_type = %s")
             params.append(interaction.interaction_type)
-        if interaction.duration_watched_sec is not None:
-            update_fields.append("duration_watched_sec = %s")
-            params.append(interaction.duration_watched_sec)
-            
         if not update_fields:
              raise HTTPException(status_code=400, detail="No fields to update")
              
         params.append(interaction_id)
-        query = f"UPDATE user_interactions SET {', '.join(update_fields)} WHERE id = %s RETURNING id, user_id, film_id, interaction_type, duration_watched_sec, interaction_timestamp"
+        query = f"UPDATE user_interactions SET {', '.join(update_fields)} WHERE id = %s RETURNING id, user_id, film_id, interaction_type, interaction_timestamp"
         
         cur.execute(query, tuple(params))
         updated_row = cur.fetchone()
