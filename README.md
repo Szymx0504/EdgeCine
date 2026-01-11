@@ -4,11 +4,11 @@ A movie recommender web application built with FastAPI (Python) and React.
 
 ## Features
 
-- 🎬 **Browse Top Movies** - See the most liked films in the community
-- 🔍 **Search Films** - Find movies and series by title or description
-- 🤖 **AI Recommendations** - Get personalized suggestions using natural language queries
-- ❤️ **Like Films** - Save your favorite movies and build interaction history
-- 👤 **User Profiles** - Manage your account and view your activity history
+- **Browse Top Movies** - See the most liked films in the community
+- **Search Films** - Find movies and series by title or description
+- **AI Recommendations** - Get personalized suggestions using natural language queries
+- **Like Films** - Save your favorite movies and build interaction history
+- **User Profiles** - Manage your account and view your activity history
 
 ## Tech Stack
 
@@ -38,9 +38,13 @@ DB_PORT=5432
 
 ### 2. Database Setup
 
-Run the SQL scripts in order:
+Run the SQL scripts in order (make sure the database exists first):
 
 ```bash
+# Create the database
+createdb -h localhost -U postgres your_database_name
+
+# Then run the scripts
 psql -h localhost -U postgres -d your_database_name -f sql/schema.sql
 psql -h localhost -U postgres -d your_database_name -f sql/indexes.sql
 psql -h localhost -U postgres -d your_database_name -f sql/views.sql
