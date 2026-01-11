@@ -1,4 +1,0 @@
-.env
-app/backend/config.py
-__pycache__/
-.git/

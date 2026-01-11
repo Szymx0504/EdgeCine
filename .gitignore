@@ -2,12 +2,9 @@
 
 .vscode
 
-# netflix_titles.csv
-#generate_seed.py
+netflix_titles.csv
+generate_seed.py
 
-# frontend:
-
-# Logs
 logs
 *.log
 npm-debug.log*
@@ -21,7 +18,6 @@ dist
 dist-ssr
 *.local
 
-# Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea

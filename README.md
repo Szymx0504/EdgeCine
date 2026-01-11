@@ -108,8 +108,3 @@ movieRecommender/
 
 ## Reflections
 Building this application highlighted the challenge of bridging a normalized relational schema with a modern object-oriented frontend. Managing M:N relationships (like Tags) required careful API design. The use of Database Views proved excellent for decoupling the complex "interaction scoring" logic from the application code, allowing the backend to remain lean.
-
-## Academic Integrity & AI Use
-This project was developed with the assistance of AI tools as per course policy.
-- **ChatGPT/Antigravity**: Used for scaffolding the React frontend structure, generating dummy seed data (movies/actors), and troubleshooting CSS flexbox issues.
-- **Verification**: All SQL queries and functional logic were human-reviewed and tested against the PostgreSQL database.
