@@ -68,11 +68,6 @@ def recommend_films(q: str = Query(..., min_length=1), skip: int = 0, limit: int
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # First try: websearch_to_tsquery (AND logic by default)
-        # Ranking formula:
-        # 1. Base semantic score: ts_rank(...)
-        # 2. Popularity boost: log(likes + 1) * 0.1  (log scale to prevent super-popular items from dominating)
-        # 3. Quality boost: (avg_rating - 3.0) * 0.1 (only bonus for ratings > 3.0)
         query = """
             WITH stats AS (
                 SELECT 
@@ -102,11 +97,9 @@ def recommend_films(q: str = Query(..., min_length=1), skip: int = 0, limit: int
         cur.execute(query, (q, q, limit, skip))
         rows = cur.fetchall()
         
-        # Fallback: if no results, try OR logic with plainto_tsquery on each word
         if not rows:
             words = [w.strip() for w in q.split() if len(w.strip()) >= 2]
             if words:
-                # Build OR query: word1 | word2 | word3
                 or_query = " | ".join(words)
                 fallback_query = """
                     WITH stats AS (
@@ -171,15 +164,10 @@ def search_films(query: str = Query(None, min_length=1), skip: int = 0, limit: i
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # Split query into words and filter out very short ones
         words = [w.strip() for w in query.split() if len(w.strip()) >= 2]
         
         if not words:
             return []
-
-        # Build the full-text search query using PostgreSQL tsquery
-        # First try: AND all words together
-        ts_query_and = " & ".join(words)
         
         query_fts = """
             SELECT 
@@ -198,7 +186,6 @@ def search_films(query: str = Query(None, min_length=1), skip: int = 0, limit: i
         cur.execute(query_fts, (query, query, limit, skip))
         rows = cur.fetchall()
         
-        # Fallback: if no FTS results, try ILIKE with OR logic on each word
         if not rows:
             conditions = []
             params = []
@@ -251,7 +238,6 @@ def get_film_details(film_id: int):
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
-        # Get film basic info
         cur.execute("""
             SELECT f.id, f.title, f.type, f.director, f.country, f.date_added, 
                    f.release_year, f.rating, f.description,
@@ -267,7 +253,6 @@ def get_film_details(film_id: int):
         if not film:
             raise HTTPException(status_code=404, detail="Film not found")
         
-        # Get actors
         cur.execute("""
             SELECT a.name 
             FROM actors a
@@ -276,7 +261,6 @@ def get_film_details(film_id: int):
         """, (film_id,))
         actors = [row['name'] for row in cur.fetchall()]
         
-        # Get tags
         cur.execute("""
             SELECT t.name 
             FROM tags t
@@ -285,7 +269,6 @@ def get_film_details(film_id: int):
         """, (film_id,))
         tags = [row['name'] for row in cur.fetchall()]
         
-        # Get like count and average rating
         cur.execute("""
             SELECT 
                 COUNT(CASE WHEN interaction_type = 'like' THEN 1 END) as likes,
@@ -332,15 +315,12 @@ def get_film_details(film_id: int):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
-# --- Users CRUD ---
-
 @app.post("/users", response_model=UserResponse)
 def create_user(user: UserCreate):
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
-        # Hash the password
         password_hash = hasher.hash_password(user.password)
         
         cur.execute("INSERT INTO users (name, password_hash) VALUES (%s, %s) RETURNING id, name", (user.name, password_hash))
@@ -423,8 +403,6 @@ def delete_user(user_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# --- User Interactions ---
-
 @app.get("/users/{user_id}/interactions")
 def get_user_interactions(user_id: int):
     """Get all interactions for a user with film details."""
@@ -448,8 +426,6 @@ def get_user_interactions(user_id: int):
         return interactions
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-# --- Interactions CRUD ---
 
 @app.post("/interactions", response_model=InteractionResponse)
 def create_interaction(interaction: InteractionCreate):
@@ -484,7 +460,6 @@ def update_interaction(interaction_id: int, interaction: InteractionUpdate):
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
-        # Build dynamic query based on provided fields
         update_fields = []
         params = []
         if interaction.interaction_type is not None:
@@ -533,8 +508,6 @@ def delete_interaction(interaction_id: int):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-# --- Analytics View ---
 
 @app.get("/analytics/training-data")
 def get_training_data():

@@ -24,8 +24,8 @@ const Layout = () => {
           </div>
           
           <nav className="nav-links">
-             <Link to="/" className={`nav-link ${isActive('/')}`}>Top Movies</Link>
-             <Link to="/recommend" className={`nav-link ${isActive('/recommend')}`}>AI Recommend</Link>
+             <Link to="/" className={`nav-link ${isActive('/')}`}>AI Recommend</Link>
+             <Link to="/top-movies" className={`nav-link ${isActive('/top-movies')}`}>Top Movies</Link>
              <Link to="/search" className={`nav-link ${isActive('/search')}`}>Search</Link>
           </nav>
           

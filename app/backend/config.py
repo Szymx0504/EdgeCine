@@ -26,7 +26,6 @@ class DatabaseConfig:
 
 class PasswordHasher:
     def __init__(self):
-        # pwd_context tells passlib to use bcrypt
         self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
     def hash_password(self, password: str) -> str:

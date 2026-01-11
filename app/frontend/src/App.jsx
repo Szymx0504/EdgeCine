@@ -19,8 +19,8 @@ function App() {
       <Route path="/login" element={<Login />} />
       
       <Route element={<CheckAuth><Layout /></CheckAuth>}>
-        <Route path="/" element={<Home />} />
-        <Route path="/recommend" element={<Recommend />} />
+        <Route path="/" element={<Recommend />} />
+        <Route path="/top-movies" element={<Home />} />
         <Route path="/search" element={<Search />} />
         <Route path="/profile" element={<Profile />} />
       </Route>
