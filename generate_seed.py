@@ -79,7 +79,6 @@ for index, row in df.iterrows():
     films_inserts.append(sql)
 
     if pd.notna(row["cast"]):
-        #stripa trzeba dac przed set
         unique_actors_in_film = set([a.strip() for a in row["cast"].split(",")])
         for actor in unique_actors_in_film:
             actor_id = actor_ids_map[actor]
@@ -102,14 +101,12 @@ user_interactions_inserts = []
 names = ["Adam", "Ewa", "Marek", "Kasia", "Piotr", "Zuzia", "Jan", "Anna", "Robert", "Magda"]
 surnames = ["Nowak", "Kowalski", "Wiśniewski", "Wójcik", "Kowalczyk", "Kamiński"]
 
-popular_films_ids = list(range(1, 101)) 
-# all_films_ids = list(range(1, len(df) + 1))
+popular_films_ids = list(range(1, 101))
 tag_to_films = {}
 for tag_name, t_id in tags_ids_map.items():
     tag_to_films[t_id] = df[df['listed_in'].str.contains(tag_name, na=False)].index + 1
 
 for u_id in range(1, 501):
-    # Append ID to ensure unique usernames
     full_name = f"{random.choice(names)} {random.choice(surnames)} {u_id}"
     password = "".join(random.choices(string.ascii_letters + string.digits, k=10))
     password_hash = hasher.hash_password(password)

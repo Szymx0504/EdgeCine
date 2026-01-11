@@ -93,10 +93,11 @@ movieRecommender/
 │           ├── pages/       # Route components
 │           ├── components/  # Reusable UI components
 │           └── context/     # Auth context
-├── schema.sql               # Database schema
-├── indexes.sql              # Performance indexes
-├── views.sql                # Reporting views
-└── seed.sql                 # Sample data
+├── sql/
+│   ├── schema.sql           # Database schema
+│   ├── indexes.sql          # Performance indexes
+│   ├── views.sql            # Reporting views
+│   └── seed.sql             # Sample data
 ```
 
 ## Database Design

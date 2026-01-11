@@ -1,12 +1,9 @@
-
--- Drop tables in reverse order of dependency to avoid errors
 drop table if exists users_tags;
 drop table if exists films_actors;
 drop table if exists films_tags;
 drop table if exists user_interactions cascade;
 
 drop table if exists users cascade;
--- cascade should handle dependent foreign keys, but explicit drops above are safer
 drop table if exists tags cascade;
 drop table if exists films cascade;
 drop table if exists movies cascade;
@@ -67,10 +64,8 @@ create table films(
 		)
 );
 
--- Trigger to automatically update the search_vector whenever a film is inserted or updated
 CREATE OR REPLACE FUNCTION films_search_vector_update() RETURNS trigger AS $$
 BEGIN
-  -- We concatenate title (A-weight: most important) and description (B-weight)
   NEW.search_vector :=
     setweight(to_tsvector('english', coalesce(NEW.title, '')), 'A') ||
     setweight(to_tsvector('english', coalesce(NEW.description, '')), 'B');
@@ -110,7 +105,7 @@ create table user_interactions(
 	id bigserial primary key,
 	user_id int not null,
 	film_id int not null,
-	interaction_type varchar(16) not null, -- like, rate_1, rate_2, rate_3, rate_4, rate_5
+	interaction_type varchar(16) not null,
 	interaction_timestamp timestamp with time zone default current_timestamp,
 
 	foreign key(user_id) references users(id) on delete cascade,

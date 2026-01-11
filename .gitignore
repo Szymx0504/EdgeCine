@@ -2,9 +2,6 @@
 
 .vscode
 
-netflix_titles.csv
-generate_seed.py
-
 logs
 *.log
 npm-debug.log*
