@@ -117,3 +117,28 @@
   margin-top: auto;
 }
 
+.neural-reason {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: rgba(59, 130, 246, 0.05);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 20px;
+  animation: fadeIn 0.8s ease-out;
+}
+
+.neural-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.reason-text {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--accent-color);
+  line-height: 1.4;
+  font-style: italic;
+}
+

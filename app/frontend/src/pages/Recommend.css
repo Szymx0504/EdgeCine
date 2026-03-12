@@ -8,13 +8,23 @@
 
 .recommend-hero {
   padding: 80px 0 60px;
-  text-align: left;
   animation: fadeIn 0.8s ease-out;
+}
+
+.hero-content {
+  width: 800px; /* Fixed width to prevent any fluctuations */
+  max-width: 100%; /* Responsive fallback for small screens */
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
 }
 
 .ai-badge {
   display: inline-flex;
   align-items: center;
+  align-self: flex-start; /* Aligns to left of the 800px hero-content box */
   gap: 8px;
   padding: 8px 16px;
   background: linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%);
@@ -63,12 +73,16 @@
   max-width: 700px;
   line-height: 1.6;
   margin-bottom: 48px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .recommend-search-wrapper {
   position: relative;
-  max-width: 800px;
-  margin-bottom: 80px;
+  width: 800px;
+  max-width: 100%;
+  margin: 0 auto 80px;
+  box-sizing: border-box;
   animation: fadeIn 1s ease-out;
 }
 
@@ -195,6 +209,57 @@
   color: var(--text-primary);
   margin-bottom: 12px;
   font-size: 1.5rem;
+}
+
+/* Insight Box Enhancement */
+.insight-box {
+  margin: 0 auto 48px;
+  padding: 32px;
+  max-width: 800px;
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 28px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(236, 72, 153, 0.08) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.4);
+}
+
+.insight-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.insight-header h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--accent-color);
+}
+
+.insight-text {
+  font-size: 1.2rem;
+  line-height: 1.6;
+  color: #ddd;
+  font-weight: 450;
+  font-style: italic;
+  text-align: center;
+}
+
+.text-accent {
+  color: var(--accent-color);
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 @media (max-width: 768px) {

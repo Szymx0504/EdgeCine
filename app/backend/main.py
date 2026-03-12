@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException, Query, Body
+from fastapi import FastAPI, HTTPException, Query, Body, Security, Depends
+from fastapi.security.api_key import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -7,11 +8,316 @@ from typing import List
 from .config import db_config
 from .schemas import (
     UserCreate, UserUpdate, UserResponse, UserLogin,
-    InteractionCreate, InteractionUpdate, InteractionResponse
+    InteractionCreate, InteractionUpdate, InteractionResponse,
+    FilmCreate, FilmResponse
 )
 from .config import hasher
 
+import os
+import torch
+import onnxruntime as ort
+from transformers import AutoTokenizer
+
+# Load Optimized ONNX Model at Startup (Edge AI Optimization)
+print("Loading Optimized ONNX Model for FastAPI...")
+model_name = "sentence-transformers/all-MiniLM-L6-v2"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+# Model resides in the optimization folder
+base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+onnx_model_path = os.path.join(base_dir, "models", "v1-onnx-minilm", "model.onnx")
+
+if os.path.exists(onnx_model_path):
+    onnx_session = ort.InferenceSession(onnx_model_path, providers=['CPUExecutionProvider'])
+else:
+    print(f"CRITICAL: ONNX model not found at {onnx_model_path}")
+    onnx_session = None
+
+def mean_pooling(token_embeddings, attention_mask):
+    input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+    return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
+
+def generate_embedding(text: str):
+    if not onnx_session:
+        return None
+    
+    inputs = tokenizer(text, return_tensors="np", padding=True, truncation=True)
+    ort_inputs = {
+        'input_ids': inputs['input_ids'].astype('int64'),
+        'attention_mask': inputs['attention_mask'].astype('int64'),
+    }
+    if 'token_type_ids' in inputs:
+        ort_inputs['token_type_ids'] = inputs['token_type_ids'].astype('int64')
+        
+    ort_outs = onnx_session.run(None, ort_inputs)
+    last_hidden_state = torch.tensor(ort_outs[0])
+    attention_mask = torch.tensor(inputs['attention_mask'])
+    
+    embedding_tensor = mean_pooling(last_hidden_state, attention_mask)
+    embedding_tensor = torch.nn.functional.normalize(embedding_tensor, p=2, dim=1)
+    return embedding_tensor[0].tolist()
+
+def _extract_themes(text_list: list, query: str = ""):
+    """Last-resort fallback theme extractor. Should rarely be used."""
+    stopwords = {
+        'series', 'movie', 'film', 'drama', 'based', 'young', 'world', 'life', 'story', 'charact', 
+        'people', 'between', 'through', 'across', 'within', 'during', 'since', 'after', 'before',
+        'against', 'along', 'about', 'above', 'below', 'around', 'executive', 'company', 'office',
+        'group', 'their', 'them', 'these', 'those', 'where', 'when', 'which', 'while', 'whose',
+        'entrepreneur', 'determined', 'success', 'business', 'leader', 'career', 'actually',
+        'various', 'multiple', 'several', 'include', 'another', 'boozy', 'following', 'become',
+        'special', 'losing', 'taking', 'getting', 'making', 'found', 'given', 'known', 'named',
+        'called', 'often', 'still', 'always', 'really', 'might', 'himself', 'herself', 'themselves'
+    }
+    vibe_words = {
+        'heart', 'warm', 'laugh', 'tension', 'adventure', 'thrill', 'dark', 'hope', 
+        'friend', 'love', 'scary', 'spooky', 'unwind', 'relax', 'magic', 'mystery',
+        'journey', 'brave', 'together', 'family', 'spirit', 'vibrant', 'gentle'
+    }
+    q_words = set(query.lower().split())
+    word_scores = {}
+    for text in text_list:
+        words = [w.strip(".,()!?:;\"'").lower() for w in text.split() if len(w) > 4]
+        for w in words:
+            if any(sw == w[:len(sw)] for sw in stopwords): continue
+            score = 1
+            if any(v in w for v in vibe_words): score += 10
+            if any(w.endswith(s) for s in ['ing', 'ive', 'ful', 'ous', 'ic', 'al']): score += 3
+            if w in q_words: score -= 5
+            word_scores[w] = word_scores.get(w, 0) + score
+    sorted_themes = sorted(word_scores.items(), key=lambda x: x[1], reverse=True)
+    return [t[0] for t in sorted_themes[:3]]
+
+def generate_neural_insight(query: str, top_results: list):
+    """Generates a mood-empathetic general insight. No theme extraction."""
+    import random
+    if not top_results:
+        return "I've searched through the collection, but nothing quite matches that specific vibe yet."
+    
+    q_lower = query.lower()
+    avg_score = sum(r.get('rank', 0.5) for r in top_results) / len(top_results)
+    confidence = "strong" if avg_score > 0.7 else "moderate"
+    count = len(top_results)
+    
+    # Mood detection
+    is_laugh = any(w in q_lower for w in ['laugh', 'funny', 'comedy', 'joke', 'humor'])
+    is_sad = any(w in q_lower for w in ['sad', 'lonely', 'blue', 'depress', 'down'])
+    is_action = any(w in q_lower for w in ['excit', 'action', 'thrill', 'engag', 'fast'])
+    is_chill = any(w in q_lower for w in ['relax', 'chill', 'calm', 'unwind', 'stress', 'tire'])
+    is_scary = any(w in q_lower for w in ['scar', 'horror', 'creep', 'spook', 'dark'])
+    
+    # Empathetic greeting
+    if is_sad and is_laugh:
+        greet = random.choice([
+            "I hear you — sometimes the best medicine is a good laugh.",
+            "I'm sorry you're feeling down. Let's fix that with something uplifting.",
+            "A mix of emotions calls for a mix of great comedy.",
+            "I've got just the thing to brighten your day and bring on the laughs."
+        ])
+    elif is_sad:
+        greet = random.choice([
+            "I hope these can offer a little comfort.",
+            "Here are some titles that might help brighten your evening.",
+            "I picked these with warmth in mind.",
+            "Take a deep breath. These stories might be exactly what you need.",
+            "I've curated a gentle list for you right now.",
+            "Sometimes watching a good story is the best way to process things."
+        ])
+    elif is_laugh:
+        greet = random.choice([
+            "Ready for a laugh? Here's what I found.",
+            "These should put a smile on your face.",
+            "I've prioritized high-rated comedies to keep things light.",
+            "Searching for hilarity... here are the top matches.",
+            "If you need a good chuckle, these are guaranteed to deliver.",
+            "I've cleared the clutter. These are the funniest matches."
+        ])
+    elif is_action:
+        greet = random.choice([
+            "Buckle up — these are high-energy picks.",
+            "I've tracked down some adrenaline-fueled matches.",
+            "If you want edge-of-your-seat entertainment, look no further.",
+            "These picks are fast-paced and highly engaging.",
+            "I've isolated the most thrilling narratives in the database.",
+            "Prepare for impact. These results scored massive synergy with action."
+        ])
+    elif is_chill:
+        greet = random.choice([
+            "Here are some easy-going picks to help you unwind.",
+            "These should take the edge off — no stress required.",
+            "Perfect background watching or a slow, immersive evening.",
+            "I've tuned the algorithm to find atmospheric, relaxing content.",
+            "Kick your feet up. These are the top chill matches.",
+            "Escapism at its best. Here is a low-stakes lineup."
+        ])
+    elif is_scary:
+        greet = random.choice([
+            "Lights off? Here are your best bets for a thrill.",
+            "I found some titles that should keep you on edge.",
+            "Don't look behind you. These are the top horror alignments.",
+            "I've tapped into the darker side of the catalog for these.",
+            "These suggestions scored exceptionally high for suspense and fear.",
+            "Get ready to jump. Here are the most unsettling matches."
+        ])
+    else:
+        # Dynamic keyword insertion for generic queries
+        q_words = [w.strip(".,()!?:;") for w in query.split() if len(w) > 3 and w.lower() not in ['this', 'that', 'with', 'about', 'some', 'find', 'show', 'movie', 'series']]
+        if q_words and random.random() > 0.4:
+            kw = random.choice(q_words).lower()
+            greet = random.choice([
+                f"I found some fascinating matches focusing on '{kw}'.",
+                f"Here's what the embeddings pulled up regarding '{kw}'.",
+                f"Analyzing your request for '{kw}' yielded these top results.",
+                f"I've scanned the active vector space for the best '{kw}' content.",
+                f"The neural model found a strong semantic link to '{kw}'.",
+                f"I've optimized the search parameters around '{kw}'."
+            ])
+        else:
+            greet = random.choice([
+                "Here's what the neural engine found for you.",
+                "I've analyzed your query and pulled up these matches.",
+                "The semantic search algorithm has finalized these recommendations.",
+                "I've cross-referenced your prompt with thousands of plot vectors.",
+                "Here is your personalized lineup, freshly calculated.",
+                "I bypassed standard keyword search and matched your actual intent.",
+                "These titles possess the strongest mathematical correlation to your prompt."
+            ])
+    
+    # Confidence suffix
+    suffix = random.choice([
+        f"Found {count} results with {confidence} semantic alignment.",
+        f"{count} titles matched with {confidence} confidence.",
+        f"Showing {count} results, ranked by vector proximity.",
+        f"I've isolated {count} standout options for you.",
+        f"Here are {count} films that hit the mark perfectly.",
+        f"Reviewing the top {count} nearest neighbors in the latent space."
+    ])
+    
+    header = random.choice([
+        "Neural Insight",
+        "AI Analysis",
+        "Semantic Match Results",
+        "Vector Search Findings",
+        "Neural Network Report",
+        "Deep Learning Highlights"
+    ])
+    if q_words and random.random() > 0.6:
+        header = f"Analysis for '{random.choice(q_words).title()}'"
+        
+    return {
+        "header": header,
+        "text": f"{greet} {suffix}"
+    }
+
+def generate_movie_specific_insight(query: str, title: str, description: str, tags: list = None, used_templates: set = None):
+    """Generates a per-movie reason using real tags + mood matching, ensuring variety."""
+    import random
+    if used_templates is None:
+        used_templates = set()
+
+    q_lower = query.lower()
+    d_lower = description.lower()
+    # Clean tags from awkward plural suffixes
+    def clean_tag(t):
+        t = t.lower()
+        for suffix in [' tv shows', ' movies', ' features', ' series']:
+            if t.endswith(suffix):
+                t = t[:-len(suffix)]
+        return t.strip()
+
+    tag_names = [clean_tag(t) for t in (tags or [])]
+    
+    # 1. Tag-Based Reasoning (highest quality)
+    if tag_names:
+        # Match tags to mood
+        is_laugh = any(w in q_lower for w in ['laugh', 'funny', 'comedy', 'joke', 'humor'])
+        is_sad = any(w in q_lower for w in ['sad', 'lonely', 'blue', 'depress', 'down'])
+        is_chill = any(w in q_lower for w in ['relax', 'chill', 'calm', 'unwind'])
+        is_romance = any(w in q_lower for w in ['romance', 'love', 'kiss', 'date'])
+        
+        # Find relevant tags to highlight
+        mood_tag_map = {
+            'comed': is_laugh, 'stand-up': is_laugh,
+            'drama': is_sad, 'emotion': is_sad,
+            'romant': is_romance, 'feel-good': is_laugh or is_romance,
+            'chill': is_chill, 'documentary': is_chill
+        }
+        
+        highlighted = [t for t in tag_names if any(k in t for k, v in mood_tag_map.items() if v)]
+        
+        # Filter out overly generic overarching tags for display
+        boring_tags = ['international', 'tv show', 'movie', 'feature']
+        meaningful_tags = [t for t in tag_names if not any(b in t for b in boring_tags)]
+        
+        if highlighted:
+            display_tags = highlighted[:2]
+        elif meaningful_tags:
+            display_tags = meaningful_tags[:2]
+        else:
+            display_tags = tag_names[:2]
+            
+        tag_str = " & ".join([t.title() for t in display_tags])
+        
+        
+        options = []
+        if 1 not in used_templates: options.append((1, f"Tagged as a {tag_str} — a strong match for your request."))
+        if 2 not in used_templates: options.append((2, f"This falls right into the {tag_str} category, which aligns perfectly."))
+        if 3 not in used_templates: options.append((3, f"Fits your vibe: a classic {tag_str}."))
+        if 4 not in used_templates: options.append((4, f"A prime example of {tag_str} storytelling."))
+        if 5 not in used_templates: options.append((5, f"Leaning heavily into the {tag_str} tropes that you'll love."))
+        if 6 not in used_templates: options.append((6, f"Selected for its strong execution of the {tag_str} genre."))
+        if 7 not in used_templates: options.append((7, f"The neural map flagged this as a highly relevant {tag_str}."))
+        if 8 not in used_templates: options.append((8, f"This is widely recognized as a top-tier {tag_str}."))
+        if 9 not in used_templates: options.append((9, f"If you're looking for {tag_str}, this is the gold standard."))
+        if 10 not in used_templates: options.append((10, f"Categorized purely as {tag_str}."))
+        
+        if not options:
+            return f"A fantastic {tag_str}."
+            
+        choice = random.choice(options)
+        used_templates.add(choice[0])
+        return choice[1]
+    
+    # 2. Direct word overlap
+    d_clean = [w.strip(".,()!?:;").lower() for w in description.split() if len(w) > 4]
+    q_words = [w.strip(".,()!?:;").lower() for w in query.split() if len(w) > 3]
+    overlap = [w for w in d_clean if w in q_words]
+    
+    if overlap:
+        word = overlap[0]
+        return random.choice([
+            f"Direct match on '{word}' from your search.",
+            f"This one explores '{word}', which you mentioned."
+        ])
+    
+    # 3. Mood matching from description
+    is_lonely = any(m in q_lower for m in ['lonely', 'sad', 'blue', 'alone'])
+    if is_lonely and any(kw in d_lower for kw in ['heart', 'touching', 'friend', 'hope', 'together', 'love', 'warm']):
+        return random.choice([
+            "A heartwarming story — good company for a quiet evening.",
+            "This one's uplifting and gentle, perfect for right now."
+        ])
+        
+    # 4. Generic confidence fallback
+    return random.choice([
+        "Ranked highly by the neural engine for semantic similarity.",
+        "Strong vector match to the meaning behind your request.",
+        "The AI found a deep connection between your query and this plot."
+    ])
+
 app = FastAPI(title="Netflix Data API")
+
+# Setup a simple static API Key for protecting sensitive endpoints (like POST /films)
+API_KEY = os.getenv("API_KEY", "super-secret-admin-key")
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+def get_api_key(api_key_header: str = Security(api_key_header)):
+    if api_key_header == API_KEY:
+        return api_key_header
+    raise HTTPException(
+        status_code=401,
+        detail="Invalid or missing API Key"
+    )
 
 app.add_middleware(
     CORSMiddleware,
@@ -63,11 +369,86 @@ def get_top_movies():
         raise HTTPException(status_code=500, detail=str(e))
     
 @app.get("/films/recommend")
-def recommend_films(q: str = Query(..., min_length=1), skip: int = 0, limit: int = Query(20, le=100)):
+def recommend_films(q: str = Query(..., min_length=1), skip: int = 0, limit: int = Query(6, le=100)):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
 
+        # Step 1: Generate vector embedding for the search query
+        query_embedding = generate_embedding(q)
+
+        if query_embedding:
+            # Vector Search Query (using Cosine Distance <=> or <->)
+            # The smaller the distance, the more similar the vectors
+            query = """
+                WITH stats AS (
+                    SELECT 
+                        f.id,
+                        (SELECT COUNT(*) FROM user_interactions ui WHERE ui.film_id = f.id AND ui.interaction_type = 'like') as likes,
+                        (SELECT AVG(CAST(SPLIT_PART(interaction_type, '_', 2) AS INTEGER))
+                         FROM user_interactions ui 
+                         WHERE ui.film_id = f.id AND ui.interaction_type LIKE 'rate_%%') as avg_rating
+                    FROM films f
+                    WHERE f.embedding IS NOT NULL
+                    ORDER BY f.embedding <=> %s::vector
+                    LIMIT 200 -- Pre-filter top 200 closest vector matches before applying ranking
+                )
+                SELECT 
+                    f.id, f.title, f.release_year, f.type, f.description,
+                    (
+                        -- Vector Similarity Score (1 - Cosine Distance)
+                        (1.0 - (f.embedding <=> %s::vector)) * 2.0 + 
+                        (LN(COALESCE(s.likes, 0) + 1) * 0.1) +
+                        (CASE WHEN COALESCE(s.avg_rating, 0) > 3.0 THEN (s.avg_rating - 3.0) * 0.1 ELSE 0 END)
+                    ) as rank,
+                    COALESCE(s.likes, 0) as likes,
+                    ROUND(COALESCE(s.avg_rating, 0), 1) as avg_rating
+                FROM films f
+                JOIN stats s ON f.id = s.id
+                ORDER BY rank DESC
+                LIMIT %s;
+            """
+            cur.execute(query, (query_embedding, query_embedding, limit))
+            rows = cur.fetchall()
+            
+            if rows:
+                results = []
+                used_templates = set()
+                for r in rows:
+                    # Exponential/Linear mapping for MiniLM embeddings
+                    # Raw rank (including bonuses) is usually around 0.6 - 1.2
+                    raw_rank = r[5]
+                    # This maps a 0.5 raw score -> 60% and 1.2 raw score -> 95%
+                    calculated_rank = (raw_rank - 0.4) * 0.5 + 0.6
+                    ui_rank = min(0.99, max(0.55, calculated_rank))
+                    
+                    # Fetch real tags for this film
+                    cur.execute(
+                        "SELECT t.name FROM films_tags ft JOIN tags t ON ft.tag_id = t.id WHERE ft.film_id = %s",
+                        (r[0],)
+                    )
+                    film_tags = [row[0] for row in cur.fetchall()]
+                    
+                    results.append({
+                        "id": r[0],
+                        "title": r[1],
+                        "year": r[2],
+                        "type": r[3],
+                        "description": r[4],
+                        "rank": ui_rank,
+                        "likes": r[6],
+                        "avg_rating": r[7],
+                        "match_reason": generate_movie_specific_insight(q, r[1], r[4], tags=film_tags, used_templates=used_templates)
+                    })
+                
+                insight_data = generate_neural_insight(q, results)
+                return {
+                    "results": results,
+                    "neural_insight_header": insight_data["header"],
+                    "neural_insight": insight_data["text"]
+                }
+
+        # FALLBACK: Full-Text Keyword Search
         query = """
             WITH stats AS (
                 SELECT 
@@ -144,10 +525,64 @@ def recommend_films(q: str = Query(..., min_length=1), skip: int = 0, limit: int
         
         cur.close()
         conn.close()
-        return results
+        return {
+            "results": results,
+            "neural_insight_header": "Text Search Match",
+            "neural_insight": f"Keyword Search Fallback: I've found {len(results)} matches using traditional text similarity."
+        }
     except Exception as e:
         print(f"Error: {e}")
         raise HTTPException(status_code=500, detail="Database error during recommendation")
+
+@app.post("/films", response_model=FilmResponse)
+def create_film(film: FilmCreate, api_key: str = Depends(get_api_key)):
+    """
+    Creates a new film and IMMEDIATELY generates its vector embedding 'in the background' 
+    using the ONNX model from the optimization step before saving to the database.
+    """
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # 1. Create the rich text representation for the model
+        text_to_embed = f"{film.title} ({film.type}). {film.description}"
+        
+        # 2. Generate the embedding locally using ONNX (Real-Time Vectorization)
+        embedding_list = generate_embedding(text_to_embed)
+
+        # 3. Insert the film into the database along with its pre-calculated embedding
+        # Notice we cast the list to `::vector` for pgvector
+        query = """
+            INSERT INTO films (
+                title, type, director, country, release_year, 
+                rating, duration, listed_in, description, embedding
+            ) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::vector) 
+            RETURNING id, title, type, description
+        """
+        
+        cur.execute(query, (
+            film.title, 
+            film.type, 
+            film.director, 
+            film.country, 
+            film.release_year,
+            film.rating, 
+            film.duration, 
+            film.listed_in, 
+            film.description, 
+            embedding_list
+        ))
+        
+        new_film = cur.fetchone()
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        return new_film
+    except Exception as e:
+        print(f"Create Film Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/films/search")
 def search_films(query: str = Query(None, min_length=1), skip: int = 0, limit: int = Query(20, le=100)):

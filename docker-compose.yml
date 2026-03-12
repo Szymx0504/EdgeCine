@@ -1,0 +1,43 @@
+services:
+  db:
+    image: ankane/pgvector:latest
+    container_name: movie_recommender_db
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - movie_db_data:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d
+
+  backend:
+    build:
+      context: .
+      dockerfile: app/backend/Dockerfile
+    container_name: movie_recommender_backend
+    environment:
+      DB_HOST: db
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PORT: 5432
+      API_KEY: ${API_KEY}
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./app/frontend
+      dockerfile: Dockerfile
+    container_name: movie_recommender_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  movie_db_data:
