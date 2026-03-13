@@ -59,7 +59,7 @@ const Recommend = () => {
             <Sparkles size={14} />
             <span>AI Discovery Engine</span>
           </div>
-          <h1 className="recommend-title">Personal AI Assistant</h1>
+          <h1 className="recommend-title">EdgeCine Neural Search</h1>
           <p className="recommend-description">
             Describe your perfect movie in natural language. Our neural engine will analyze your request and find the most relevant titles in our library.
           </p>

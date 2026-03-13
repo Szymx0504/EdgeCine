@@ -1,4 +1,4 @@
-# 🎬 MovieRecommender: High-Performance Semantic Discovery Engine
+# 🎬 EdgeCine: High-Performance Semantic Discovery Engine
 
 [![Tech Stack: FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Vector DB: pgvector](https://img.shields.io/badge/Vector_DB-pgvector-336791?style=flat-square&logo=postgresql&logoColor=white)](https://github.com/pgvector/pgvector)
