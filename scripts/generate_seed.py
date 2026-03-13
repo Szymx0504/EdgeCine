@@ -2,6 +2,7 @@ import random
 import string
 import pandas as pd
 from datetime import datetime, timedelta
+import os
 import bcrypt
 
 def to_batch_insert(table, columns, items, batch_size=100):
@@ -31,7 +32,12 @@ def format_val(val):
     s = str(val).replace("'", "''")
     return f"'{s}'"
 
-df = pd.read_csv("netflix_titles.csv", sep=",")
+# Resolve paths relative to the project root
+base_dir = os.path.dirname(os.path.abspath(__file__)) if "scripts" not in os.path.dirname(__file__) else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+csv_path = os.path.join(base_dir, "data", "movies_raw.csv")
+sql_path = os.path.join(base_dir, "sql", "seed.sql")
+
+df = pd.read_csv(csv_path, sep=",")
 df = df.dropna(subset=["listed_in", "title", "type"])
 df["date_added"] = pd.to_datetime(df["date_added"], format="%B %d, %Y", errors="coerce")
 
@@ -149,7 +155,7 @@ for u_id in range(1, 501):
         user_interactions_items.append(f"({u_id}, {f_id}, '{act_type}', '{ts}')")
 
 
-with open("sql/seed.sql", "w", encoding="utf-8") as out:
+with open(sql_path, "w", encoding="utf-8") as out:
     out.write("\\encoding UTF8\n\n")
     out.write("BEGIN;\n\n")
     

@@ -35,7 +35,7 @@ You will need **Docker** and **Docker Compose**. If you are on Windows, ensure t
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-username/EdgeCine.git
+git clone https://github.com/Szymx0504/EdgeCine.git
 cd EdgeCine
 
 # 2. Build and launch the containers
