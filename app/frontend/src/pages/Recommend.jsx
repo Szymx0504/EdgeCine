@@ -14,6 +14,7 @@ const Recommend = () => {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [selectedFilmId, setSelectedFilmId] = useState(null);
+  const [telemetry, setTelemetry] = useState(null);
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -28,9 +29,10 @@ const Recommend = () => {
     
     try {
       const response = await api.get(`/films/recommend?q=${encodeURIComponent(query)}`);
-      const { results, neural_insight, neural_insight_header } = response.data;
+      const { results, neural_insight, neural_insight_header, telemetry } = response.data;
       
       setMovies(results);
+      setTelemetry(telemetry);
       setInsight(neural_insight);
       setInsightHeader(neural_insight_header || "Neural Insight");
       
@@ -82,7 +84,9 @@ const Recommend = () => {
 
       {loading ? (
         <div className="loading-container">
-          <div className="loading-spinner"></div>
+          <div className="neural-wave">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
           <div className="loading-text">Our AI is scanning the library for you...</div>
         </div>
       ) : searched ? (
@@ -94,6 +98,23 @@ const Recommend = () => {
                 <h3>{insightHeader}</h3>
               </div>
               <p className="insight-text">{displayInsight}</p>
+              
+              {telemetry && (
+                <div className="neural-monitor animate-fade-in">
+                  <div className="monitor-item">
+                    <span className="monitor-label">Latency:</span>
+                    <span className="monitor-value">{telemetry.inference_time_ms}ms</span>
+                  </div>
+                  <div className="monitor-item">
+                    <span className="monitor-label">Variant:</span>
+                    <span className="monitor-value">{telemetry.model_variant}</span>
+                  </div>
+                  <div className="monitor-item">
+                    <span className="monitor-label">Engine:</span>
+                    <span className="monitor-value">{telemetry.vector_engine}</span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           

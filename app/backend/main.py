@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Query, Body, Security, Depends
 from fastapi.security.api_key import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
 import psycopg2
+import time
 from psycopg2.extras import RealDictCursor
 from typing import List
 
@@ -23,9 +24,18 @@ print("Loading Optimized ONNX Model for FastAPI...")
 model_name = "sentence-transformers/all-MiniLM-L6-v2"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-# Model resides in the optimization folder
-base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-onnx_model_path = os.path.join(base_dir, "models", "v1-onnx-minilm", "model.onnx")
+# Model variant selection (FP32 vs INT8)
+model_variant = os.getenv("ONNX_VARIANT", "FP32").upper()
+# Resolve the absolute path to the 'app' directory
+# Since main.py is in /app/backend, we only need to go up one directory to reach /app
+base_dir = os.path.dirname(os.path.dirname(__file__))
+
+if model_variant == "INT8":
+    onnx_model_path = os.path.join(base_dir, "models", "v1-onnx-minilm", "model_int8.onnx")
+else:
+    onnx_model_path = os.path.join(base_dir, "models", "v1-onnx-minilm", "model.onnx")
+
+print(f"USING MODEL VARIANT: {model_variant} at {onnx_model_path}")
 
 if os.path.exists(onnx_model_path):
     onnx_session = ort.InferenceSession(onnx_model_path, providers=['CPUExecutionProvider'])
@@ -227,6 +237,21 @@ def generate_movie_specific_insight(query: str, title: str, description: str, ta
 
     tag_names = [clean_tag(t) for t in (tags or [])]
     
+    # --- Vibe Extraction Logic ---
+    vibe_keywords = {
+        "dark": ["dark", "murder", "twisted", "death", "grim", "noir", "shadow"],
+        "heartwarming": ["heart", "touching", "feel-good", "inspiring", "warm", "hope"],
+        "suspenseful": ["suspense", "tension", "thriller", "mystery", "edge", "clue"],
+        "epic": ["epic", "journey", "vast", "war", "battle", "legend", "historic"],
+        "whimsical": ["magic", "whimsical", "fantasy", "dream", "wonder", "odd"],
+        "intense": ["intense", "brutal", "grit", "fighting", "explosive"],
+        "thought-provoking": ["think", "mind", "psychological", "deep", "philosophy", "existential"]
+    }
+    
+    found_vibes = [v for v, kws in vibe_keywords.items() if any(k in d_lower for k in kws)]
+    vibe_prefix = random.choice(found_vibes).capitalize() + " " if found_vibes else ""
+    # -----------------------------
+
     # 1. Tag-Based Reasoning (highest quality)
     if tag_names:
         # Match tags to mood
@@ -259,22 +284,25 @@ def generate_movie_specific_insight(query: str, title: str, description: str, ta
         tag_str = " & ".join([t.title() for t in display_tags])
         
         
-        options = []
-        if 1 not in used_templates: options.append((1, f"Tagged as a {tag_str} — a strong match for your request."))
-        if 2 not in used_templates: options.append((2, f"This falls right into the {tag_str} category, which aligns perfectly."))
-        if 3 not in used_templates: options.append((3, f"Fits your vibe: a classic {tag_str}."))
-        if 4 not in used_templates: options.append((4, f"A prime example of {tag_str} storytelling."))
-        if 5 not in used_templates: options.append((5, f"Leaning heavily into the {tag_str} tropes that you'll love."))
-        if 6 not in used_templates: options.append((6, f"Selected for its strong execution of the {tag_str} genre."))
-        if 7 not in used_templates: options.append((7, f"The neural map flagged this as a highly relevant {tag_str}."))
-        if 8 not in used_templates: options.append((8, f"This is widely recognized as a top-tier {tag_str}."))
-        if 9 not in used_templates: options.append((9, f"If you're looking for {tag_str}, this is the gold standard."))
-        if 10 not in used_templates: options.append((10, f"Categorized purely as {tag_str}."))
+        options = [
+            (1, f"A {vibe_prefix}{tag_str} story — a strong match for your request."),
+            (2, f"This falls right into the {tag_str} category, with a {vibe_prefix.lower().strip() or 'unique'} tone."),
+            (3, f"Fits your vibe: a classic {tag_str} with {vibe_prefix.lower().strip() or 'compelling'} elements."),
+            (4, f"A prime example of {tag_str} storytelling that feels {vibe_prefix.lower().strip() or 'highly relevant'}."),
+            (5, f"Leaning into the {vibe_prefix.lower().strip() or 'strong'} {tag_str} tropes that you'll appreciate."),
+            (6, f"Selected for its {vibe_prefix.lower().strip() or 'masterful'} execution of the {tag_str} genre."),
+            (7, f"The neural map flagged this as a {vibe_prefix.lower().strip() or 'relevant'} {tag_str} piece."),
+            (8, f"This is widely recognized as a {vibe_prefix.lower().strip() or 'top-tier'} {tag_str}."),
+            (9, f"If you're looking for {vibe_prefix.lower().strip() or 'quality'} {tag_str}, this is a great choice."),
+            (10, f"Categorized as {tag_str}, it explores {vibe_prefix.lower().strip() or 'intriguing'} themes.")
+        ]
         
-        if not options:
-            return f"A fantastic {tag_str}."
+        filtered_options = [o for o in options if o[0] not in used_templates]
+        
+        if not filtered_options:
+            return f"A fantastic {vibe_prefix.lower()}{tag_str}."
             
-        choice = random.choice(options)
+        choice = random.choice(filtered_options)
         used_templates.add(choice[0])
         return choice[1]
     
@@ -370,6 +398,7 @@ def get_top_movies():
     
 @app.get("/films/recommend")
 def recommend_films(q: str = Query(..., min_length=1), skip: int = 0, limit: int = Query(6, le=100)):
+    start_time = time.time()
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -442,10 +471,16 @@ def recommend_films(q: str = Query(..., min_length=1), skip: int = 0, limit: int
                     })
                 
                 insight_data = generate_neural_insight(q, results)
+                
                 return {
                     "results": results,
                     "neural_insight_header": insight_data["header"],
-                    "neural_insight": insight_data["text"]
+                    "neural_insight": insight_data["text"],
+                    "telemetry": {
+                        "inference_time_ms": round((time.time() - start_time) * 1000, 2),
+                        "model_variant": model_variant,
+                        "vector_engine": "PostgreSQL + pgvector (Cosine Similarity)"
+                    }
                 }
 
         # FALLBACK: Full-Text Keyword Search

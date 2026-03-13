@@ -4,7 +4,10 @@ from psycopg2.extras import RealDictCursor, execute_values
 from transformers import AutoTokenizer, AutoModel
 import torch
 import numpy as np
-from config import db_config
+try:
+    from .config import db_config
+except (ImportError, ValueError):
+    from config import db_config
 
 def mean_pooling(token_embeddings, attention_mask):
     input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()

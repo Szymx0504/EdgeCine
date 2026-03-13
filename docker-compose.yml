@@ -24,6 +24,10 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       DB_PORT: 5432
       API_KEY: ${API_KEY}
+      ONNX_VARIANT: ${ONNX_VARIANT:-FP32}
+    volumes:
+      - ./app/backend:/app/backend
+      - ./scripts:/app/scripts
     depends_on:
       - db
     ports:
