@@ -31,3 +31,20 @@ class InteractionResponse(BaseModel):
     film_id: int
     interaction_type: str
     interaction_timestamp: datetime
+
+class FilmCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=255)
+    type: str = Field(..., pattern="^(Movie|TV Show)$")
+    director: Optional[str] = None
+    country: Optional[str] = None
+    release_year: Optional[int] = None
+    rating: Optional[str] = None
+    duration: Optional[str] = None
+    listed_in: Optional[str] = None
+    description: str
+
+class FilmResponse(BaseModel):
+    id: int
+    title: str
+    type: str
+    description: str

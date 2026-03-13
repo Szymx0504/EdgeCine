@@ -37,6 +37,13 @@ export const MovieCard = ({ movie, onClick }) => {
              {movie.rating && <span>• {movie.rating}</span>}
         </div>
 
+        {movie.match_reason && (
+          <div className="neural-reason">
+            <span className="neural-icon">🤖</span>
+            <span className="reason-text">{movie.match_reason}</span>
+          </div>
+        )}
+
         <p className="movie-description">
           {movie.description}
         </p>

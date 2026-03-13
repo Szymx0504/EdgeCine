@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+psycopg2-binary
+passlib
+onnxruntime
+onnx
+transformers
+torch
+python-dotenv

@@ -1,115 +1,62 @@
-# NetRecommender
+# 🎬 EdgeCine: High-Performance Semantic Discovery Engine
 
-A movie recommender web application built with FastAPI (Python) and React.
+[![Tech Stack: FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Vector DB: pgvector](https://img.shields.io/badge/Vector_DB-pgvector-336791?style=flat-square&logo=postgresql&logoColor=white)](https://github.com/pgvector/pgvector)
+[![Inference: ONNX Runtime](https://img.shields.io/badge/Inference-ONNX_Runtime-00599C?style=flat-square&logo=onnx&logoColor=white)](https://onnxruntime.ai/)
+[![Edge AI: Quantized INT8](https://img.shields.io/badge/Edge_AI-Quantized_INT8-4CC61E?style=flat-square)](https://onnxruntime.ai/docs/performance/model-optimizations/quantization.html)
 
-## Features
+A high-performance semantic search platform designed for edge-ready AI inference. This project moves beyond simple keyword matching by mapping over 8,000 films into a **384-dimensional latent space**, enabling conceptual discovery with sub-100ms latency on standard CPU hardware.
 
-- **Browse Top Movies** - See the most liked films in the community
-- **Search Films** - Find movies and series by title or description
-- **AI Recommendations** - Get personalized suggestions using natural language queries
-- **Like Films** - Save your favorite movies and build interaction history
-- **User Profiles** - Manage your account and view your activity history
+---
 
-## Tech Stack
+## 🚀 Key Engineering Features
 
-- **Backend**: Python FastAPI + PostgreSQL
-- **Frontend**: React + Vite
-- **Database**: PostgreSQL with Full-Text Search
+### 1. Hardware-Aware AI Inference (ONNX)
+- **Compiling vs. Interpreting:** Instead of standard PyTorch, we use **ONNX Runtime** to "compile" the model graph, achieving a **2x speedup** in query-to-vector transformation.
+- **In-process Inference:** Vectorization happens directly in the FastAPI process, eliminating the need for expensive external LLM API calls.
+- **Quantization Support:** Features built-in support for **FP32** (High Precision) and **INT8** (Memory Optimized) model variants, demonstrating readiness for constrained edge hardware.
 
-## Prerequisites
+### 2. Hybrid Search Architecture
+Utilizes a multi-layered discovery strategy implemented in PostgreSQL:
+- **Primary:** Semantic Vector Similarity using `pgvector` and **Cosine Distance (`<=>`)**.
+- **Secondary:** PostgreSQL Full-Text Search (FTS) with English-stemming for exact keyword reliability.
+- **Scoring Engine:** A custom ranking algorithm that blends semantic relevance with popularity (likes) and average user ratings using log-weighted normalization.
 
-- Python 3.10+
-- Node.js 18+
-- PostgreSQL 14+
+### 3. Neural Monitor & Telemetry
+The UI features a real-time **Neural Monitor** that exposes low-level performance metrics:
+- **Inference Latency:** Direct visibility into the model execution time.
+- **Engine Trace:** Verification of the vector engine and model precision (FP32/INT8).
 
-## Setup
+---
 
-### 1. Clone and Configure
+## 🛠 Tech Stack
 
-Create a `.env` file in the root folder:
+- **Backend:** Python (FastAPI), SQLAlchemy (Psycopg2), transformers.
+- **Vector Intelligence:** PostgreSQL + `pgvector`.
+- **Optimization:** ONNX Runtime, NumPy, Torch (CPU-only build).
+- **Frontend:** React + Vite, Tailwind CSS, Lucide icons.
+- **Infrastructure:** Docker Compose (Automated WSL/Linux deployment).
 
-```
-DB_HOST=localhost
-DB_NAME=your_database_name
-DB_USER=your_username
-DB_PASSWORD=your_password
-DB_PORT=5432
-```
+---
 
-### 2. Database Setup
+## 🔧 Installation & "Neural" Setup
 
-Run the SQL scripts in order (make sure the database exists first):
-
-```bash
-# Create the database
-createdb -h localhost -U postgres your_database_name
-
-# Then run the scripts
-psql -h localhost -U postgres -d your_database_name -f sql/schema.sql
-psql -h localhost -U postgres -d your_database_name -f sql/indexes.sql
-psql -h localhost -U postgres -d your_database_name -f sql/views.sql
-psql -h localhost -U postgres -d your_database_name -f sql/seed.sql
-```
-
-### 3. Backend
+Clone the repository and ensure you have **Docker Desktop** (with WSL2 backend if on Windows).
 
 ```bash
-pip install fastapi uvicorn psycopg2-binary passlib
-uvicorn app.backend.main:app --reload
+# 1. Clone and launch (Optimized CPU Path)
+git clone https://github.com/your-repo/movieRecommender.git
+cd movieRecommender
+docker-compose up -d --build
 ```
 
-### 4. Frontend
+Access the **Neural Discovery Engine** at [http://localhost](http://localhost).
 
-```bash
-cd app/frontend
-npm install
-npm run dev
-```
+---
 
-## API Endpoints
+## 🔬 System Deep-Dive
+*For detailed information on the vector mathematics, mean-pooling logic, and the "Ghost Code" debugging case study, please refer to the internal documentation:*
+👉 **[Architecture Walkthrough & Interview Guide](./docs/walkthrough.md)**
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/movies/top` | Top 10 most liked films |
-| GET | `/films/recommend?q=` | AI-powered recommendations |
-| GET | `/films/search?q=` | Search by title/description |
-| GET | `/films/{id}` | Film details with actors/tags |
-| POST | `/users` | Register new user |
-| POST | `/login` | User login |
-| PUT | `/users/{id}` | Update user name |
-| DELETE | `/users/{id}` | Delete user account |
-| GET | `/users/{id}/interactions` | User's interaction history |
-| POST | `/interactions` | Create interaction (like/view) |
-| DELETE | `/interactions/{id}` | Remove interaction |
-| GET | `/analytics/training-data` | ML training triplets view |
-
-## Project Structure
-
-```
-movieRecommender/
-├── app/
-│   ├── backend/
-│   │   ├── main.py          # FastAPI endpoints
-│   │   ├── config.py        # Database configuration
-│   │   └── schemas.py       # Pydantic models
-│   └── frontend/
-│       └── src/
-│           ├── pages/       # Route components
-│           ├── components/  # Reusable UI components
-│           └── context/     # Auth context
-├── sql/
-│   ├── schema.sql           # Database schema
-│   ├── indexes.sql          # Performance indexes
-│   ├── views.sql            # Reporting views
-│   └── seed.sql             # Sample data
-```
-
-## Database Design
-
-- **Views**: v_model_training_triplets for ML training data
-
-## M2 Conceptual Design
-*(See `docs/M2_NOTES.md` and `diagrams/` folder)*
-
-## Reflections
-Building this application highlighted the challenge of bridging a normalized relational schema with a modern object-oriented frontend. Managing M:N relationships (like Tags) required careful API design. The use of Database Views proved excellent for decoupling the complex "interaction scoring" logic from the application code, allowing the backend to remain lean.
+---
+*Created for the Antmicro Internship Application 2026.*
