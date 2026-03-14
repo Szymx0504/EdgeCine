@@ -58,12 +58,13 @@
   font-size: clamp(2.5rem, 8vw, 4rem);
   font-weight: 850;
   margin-bottom: 24px;
-  letter-spacing: -0.04em;
-  line-height: 1.1;
+  letter-spacing: -0.02em; /* Slightly less tight to prevent clipping */
+  line-height: 1.3;        /* Increased to ensure all characters fit within the clip-box */
   background: linear-gradient(135deg, #fff 0%, #a1a1a1 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  padding-bottom: 0.1em;   /* Extra buffer for descenders */
 }
 
 .recommend-description {

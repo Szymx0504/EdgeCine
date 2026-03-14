@@ -1,3 +1,16 @@
 services:
   backend:
     command: ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+  
+  frontend:
+    build:
+      context: ./app/frontend
+      dockerfile: Dockerfile
+      target: build-stage
+    working_dir: /app
+    volumes:
+      - ./app/frontend:/app
+      - /app/node_modules # Prevents local node_modules from overshadowing container
+    ports:
+      - "8080:5173"
+    command: ["npm", "run", "dev", "--", "--host"]

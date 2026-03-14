@@ -7,3 +7,5 @@ onnx
 transformers
 torch
 python-dotenv
+pytest
+httpx

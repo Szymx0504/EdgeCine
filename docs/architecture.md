@@ -29,6 +29,10 @@ To prevent search "blindspots" when dealing with highly specific noun queries (e
 - **Ranking Engine:** Raw semantic distance is normalized and blended with historical popularity metrics (likes and average user ratings) using a log-weighted formula to prioritize highly-rated, relevant films.
 - **Insight Generation:** A stateful `used_templates` tracker forces variance in natural language generation during a single transaction, preventing repetitive phrasing across a batch of recommendations.
 
-## 5. Deployment Architecture
-- **Environment:** Containerized via Docker Compose for strict parity across development (Windows/WSL) and target production (Linux) targets.
-- **State Management:** Database initialization and vector schema setup are handled via automated SQL entrypoint execution.
+## 5. Development Hurdles & Real-world Debugging
+The transition from a prototype to a production-grade containerized environment revealed several critical technical blockers that were resolved during the hardening phase:
+
+- **WSL/Docker Hot-Reload:** File system events in Windows don't consistently propagate to Linux containers. I had to force **Polling Mode** in Vite and fix an `anonymous volume` issue where the local `node_modules` was shadowing the container's built-in dependencies.
+- **Node.js 22 (LTS) Migration:** Vite 7 relies on newer cryptographic APIs (`crypto.hash`). I had to upgrade the entire frontend stack from Node 18 to Node 22 to prevent runtime crashes during the build phase.
+- **CORS & Port Hardening:** To avoid local port 80 conflicts, the frontend was moved to **port 8080**. This required explicit whitelist updates in the FastAPI CORS middleware to allow the high-port handshake.
+- **Data Bootstrapping:** Implemented a dedicated vector restoration script (`generate_embeddings.py`) to rebuild the 384-d latent space from raw metadata upon initial database seeding.

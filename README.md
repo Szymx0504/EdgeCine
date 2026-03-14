@@ -5,9 +5,9 @@
 [![Inference: ONNX Runtime](https://img.shields.io/badge/Inference-ONNX_Runtime-00599C?style=flat-square&logo=onnx&logoColor=white)](https://onnxruntime.ai/)
 [![Deployment: Docker](https://img.shields.io/badge/Deployment-Docker-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
 
-A movie recommendation engine built to test and demonstrate edge-optimized semantic search. Instead of relying on simple keyword matching, the system maps movie metadata (descriptions, tags, directors) into a 384-dimensional vector space.
+EdgeCine is a search engine built to explore edge-optimized semantic vectorization. Instead of basic keyword matching, it maps metadata (plots, tags, directors) into a 384-dimensional latent space.
 
-The primary goal of this project was to implement high-performance, local AI inference on standard CPU hardware without relying on external, slow APIs, keeping latency well under 100ms.
+The goal was to achieve high-performance, local AI inference on standard CPU hardware. By avoiding external APIs, I kept the end-to-end search latency well under 100ms.
 
 ---
 
@@ -24,7 +24,8 @@ The primary goal of this project was to implement high-performance, local AI inf
 - **Ranking System:** Final results are sorted by a custom algorithm that combines semantic distance with log-weighted popularity metrics (likes and ratings).
 
 ### 3. Monitoring & Tooling
-- **Real-Time Telemetry:** The frontend includes a monitor that displays inference latency, execution provider details, and precision metrics on every search interaction.
+- **Search CLI:** A professional terminal-based search utility (`scripts/search_cli.py`) for engineers to test the neural engine directly from the command line.
+- **Agentic Insights:** A narrative reason engine that generates randomized, context-aware justifications for every recommendation, simulating real-time AI reasoning.
 - **Dockerized Architecture:** The entire stack (Database, Backend, Frontend) is containerized for consistent deployment across Linux/WSL environments. The Docker build process is heavily optimized, utilizing CPU-only PyTorch wheels to drastically reduce image bloat and build times.
 
 ---
@@ -37,12 +38,43 @@ You will need **Docker** and **Docker Compose**. If you are on Windows, ensure t
 # 1. Clone the repository
 git clone https://github.com/Szymx0504/EdgeCine.git
 cd EdgeCine
-
-# 2. Build and launch the containers
-docker-compose up -d --build
 ```
 
-The web interface will be available at [http://localhost](http://localhost).
+### Running the Application
+
+This project supports two execution modes via Docker Compose:
+
+*   **Development Mode (Default)**: Includes Hot-Reloading for fast development. Any code changes in the `app/` directory will be reflected instantly.
+    ```bash
+    docker compose up -d --build
+    ```
+*   **Production Context**: Runs the application with frozen code and optimized workers.
+    ```bash
+    docker compose -f docker-compose.yml up -d --build
+    ```
+
+### Running Tests
+To verify the system integrity (Neural Engine, API, RRF logic):
+```bash
+docker compose exec backend pytest tests/
+```
+
+The web interface will be available at [http://localhost:8080](http://localhost:8080).
+
+### 🛠️ Data Bootstrapping
+On a fresh installation, the database is seeded with raw metadata. You MUST generate the vector embeddings to enable semantic search:
+```bash
+# Generate 384-d embeddings for all 8,800 films (Local Inference)
+docker compose exec backend python3 /app/backend/generate_embeddings.py
+```
+*Note: This process takes 3-5 minutes on a standard CPU as it performs local transformer inference.*
+
+### 🛠️ CLI Search Tool
+A dedicated utility for engineering-level verification of the inference engine:
+```bash
+# Run a neural search from the terminal
+python scripts/search_cli.py "love" --limit 3
+```
 
 To benchmark the quantized model, you can switch the inference engine by modifying the `.env` file or `docker-compose.yml`:
 ```yaml

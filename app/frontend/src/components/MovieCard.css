@@ -114,7 +114,7 @@
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  margin-top: auto;
+  margin-bottom: 20px;
 }
 
 .neural-reason {
