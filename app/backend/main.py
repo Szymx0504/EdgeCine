@@ -2,9 +2,9 @@ from fastapi import FastAPI, HTTPException, Query, Body, Security, Depends
 from fastapi.security.api_key import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
 import psycopg2
-import time
-from psycopg2.extras import RealDictCursor
 from typing import List
+import logging
+import time
 
 from .config import db_config
 from .schemas import (
@@ -19,8 +19,16 @@ import torch
 import onnxruntime as ort
 from transformers import AutoTokenizer
 
+# Configure structured logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+logger = logging.getLogger("edge-cine-api")
+
 # Load Optimized ONNX Model at Startup (Edge AI Optimization)
-print("Loading Optimized ONNX Model for FastAPI...")
+logger.info("Initializing EdgeCine Neural Engine...")
 model_name = "sentence-transformers/all-MiniLM-L6-v2"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 
@@ -35,12 +43,13 @@ if model_variant == "INT8":
 else:
     onnx_model_path = os.path.join(base_dir, "models", "v1-onnx-minilm", "model.onnx")
 
-print(f"USING MODEL VARIANT: {model_variant} at {onnx_model_path}")
+logger.info(f"Using model variant: {model_variant} from {onnx_model_path}")
 
 if os.path.exists(onnx_model_path):
     onnx_session = ort.InferenceSession(onnx_model_path, providers=['CPUExecutionProvider'])
+    logger.info("ONNX Runtime session successfully initialized.")
 else:
-    print(f"CRITICAL: ONNX model not found at {onnx_model_path}")
+    logger.error(f"CRITICAL: ONNX model binary missing at {onnx_model_path}")
     onnx_session = None
 
 def mean_pooling(token_embeddings, attention_mask):
@@ -59,7 +68,12 @@ def generate_embedding(text: str):
     if 'token_type_ids' in inputs:
         ort_inputs['token_type_ids'] = inputs['token_type_ids'].astype('int64')
         
+    start_time = time.time()
     ort_outs = onnx_session.run(None, ort_inputs)
+    latency_ms = (time.time() - start_time) * 1000
+    
+    logger.info(f"ONNX Inference completed in {latency_ms:.2f}ms")
+    
     last_hidden_state = torch.tensor(ort_outs[0])
     attention_mask = torch.tensor(inputs['attention_mask'])
     
@@ -358,9 +372,46 @@ app.add_middleware(
 def get_db_connection():
     return psycopg2.connect(**db_config.get_connection_params())
 
+@app.get("/health")
+def health_check():
+    health_status = {
+        "status": "healthy",
+        "timestamp": time.time(),
+        "services": {
+            "onnx_model": "loaded" if onnx_session else "not_loaded",
+            "database": "unknown"
+        }
+    }
+    
+    # Check Database Connection
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT 1")
+        cur.close()
+        conn.close()
+        health_status["services"]["database"] = "connected"
+    except Exception as e:
+        logger.error(f"Health check failed: Database unreachable. Error: {e}")
+        health_status["services"]["database"] = "disconnected"
+        health_status["status"] = "unhealthy"
+    
+    if onnx_session is None:
+        logger.error("Health check failed: ONNX model session is None.")
+        health_status["status"] = "unhealthy"
+        
+    if health_status["status"] == "unhealthy":
+        raise HTTPException(status_code=503, detail=health_status)
+        
+    return health_status
+
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to the Netflix API! DB is working in the background."}
+    return {
+        "message": "EdgeCine Neural Search API",
+        "version": "2.0.0-pro",
+        "status": "active"
+    }
 
 @app.get("/movies/top")
 def get_top_movies():
@@ -566,7 +617,7 @@ def recommend_films(q: str = Query(..., min_length=1), skip: int = 0, limit: int
             "neural_insight": f"Keyword Search Fallback: I've found {len(results)} matches using traditional text similarity."
         }
     except Exception as e:
-        print(f"Error: {e}")
+        logger.error(f"Recommendation Engine Error: {e}")
         raise HTTPException(status_code=500, detail="Database error during recommendation")
 
 @app.post("/films", response_model=FilmResponse)
@@ -616,7 +667,7 @@ def create_film(film: FilmCreate, api_key: str = Depends(get_api_key)):
         conn.close()
         return new_film
     except Exception as e:
-        print(f"Create Film Error: {e}")
+        logger.error(f"Create Film Pipeline Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/films/search")
@@ -698,7 +749,7 @@ def search_films(query: str = Query(None, min_length=1), skip: int = 0, limit: i
         conn.close()
         return results
     except Exception as e:
-        print(f"Błąd bazy: {e}")
+        logger.error(f"Search API Error: {e}")
         raise HTTPException(status_code=500, detail="Błąd połączenia z bazą danych")
 
 @app.get("/films/{film_id}")
