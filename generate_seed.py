@@ -36,7 +36,7 @@ def format_val(val):
 base_dir = os.path.dirname(os.path.abspath(__file__))
 # Strict path for reproducibility
 csv_path = os.path.join(base_dir, "data", "movies_raw.csv")
-sql_path = os.path.join(base_dir, "sql", "seed.sql")
+sql_path = os.path.join(base_dir, "sql", "02_seed.sql")
 
 df = pd.read_csv(csv_path, sep=",")
 df = df.dropna(subset=["listed_in", "title", "type"])
