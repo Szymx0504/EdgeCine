@@ -1,5 +1,6 @@
 .env
 venv/
+sql/03_seed.sql
 
 .vscode
 
