@@ -72,20 +72,20 @@ erDiagram
         timestamp interaction_timestamp
     }
 
-    users ||--o{ users_tags : "has interests"
-    tags ||--o{ users_tags : "linked to"
+    users ||--o{ users_tags : ""
+    tags ||--o{ users_tags : ""
     
-    films ||--o{ films_tags : "categorized by"
-    tags ||--o{ films_tags : "applied to"
+    films ||--o{ films_tags : ""
+    tags ||--o{ films_tags : ""
     
-    films ||--o{ films_actors : "features"
-    actors ||--o{ films_actors : "acts in"
+    films ||--o{ films_actors : ""
+    actors ||--o{ films_actors : ""
     
-    films ||--o{ user_interactions : "receives"
-    users ||--o{ user_interactions : "makes"
+    films ||--o{ user_interactions : ""
+    users ||--o{ user_interactions : ""
     
-    films }o--|| movies : "subtype"
-    films }o--|| series : "subtype"
+    films }o--|| movies : ""
+    films }o--|| series : ""
 ```
 
 ## Details
