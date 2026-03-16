@@ -22,6 +22,7 @@ The goal was to achieve high-performance, local AI inference on standard CPU har
 - **Semantic Search:** Uses the `pgvector` extension to calculate the Cosine Distance (`<=>`) between the user's query vector and the pre-computed movie vectors.
 - **Fallback Search:** Implements standard PostgreSQL Full-Text Search (FTS) using English stemming as a reliable fallback for highly specific name or keyword queries.
 - **Ranking System:** Final results are sorted by a custom algorithm that combines semantic distance with log-weighted popularity metrics (likes and ratings).
+- **Modern Lifecycle:** Uses FastAPI `lifespan` handlers for clean resource management (replacing deprecated startup/shutdown events).
 
 ### 3. Monitoring & Tooling
 - **Search CLI:** A professional terminal-based search utility (`scripts/search_cli.py`) for engineers to test the neural engine directly from the command line.
@@ -38,6 +39,10 @@ You will need **Docker** and **Docker Compose**. If you are on Windows, ensure t
 # 1. Clone the repository
 git clone https://github.com/Szymx0504/EdgeCine.git
 cd EdgeCine
+
+# 2. Configure Environment
+# Copy the example file and modify if needed
+cp .env.example .env
 ```
 
 ### Running the Application
@@ -50,18 +55,18 @@ This project supports two execution modes via Docker Compose:
     ```
 *   **Production Context**: Runs the application with frozen code and optimized workers.
     ```bash
-    docker compose -f docker-compose.yml up -d --build
+    docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
     ```
 
 ### Running Tests
 To verify the system integrity (Neural Engine, API, RRF logic):
 ```bash
-docker compose exec backend pytest tests/
+docker compose exec backend pytest backend/tests/
 ```
 
 The web interface will be available at [http://localhost:8080](http://localhost:8080).
 
-### 🛠️ Data Bootstrapping
+### Data Bootstrapping
 On a fresh installation, the database is seeded with raw metadata. You MUST generate the vector embeddings to enable semantic search:
 ```bash
 # Generate 384-d embeddings for all 8,800 films (Local Inference)
@@ -69,11 +74,11 @@ docker compose exec backend python3 /app/backend/generate_embeddings.py
 ```
 *Note: This process takes 3-5 minutes on a standard CPU as it performs local transformer inference.*
 
-### 🛠️ CLI Search Tool
+### CLI Search Tool
 A dedicated utility for engineering-level verification of the inference engine:
 ```bash
 # Run a neural search from the terminal
-python scripts/search_cli.py "love" --limit 3
+python scripts/search_cli.py "fast-paced psychological thriller" --limit 3
 ```
 
 To benchmark the quantized model, you can switch the inference engine by modifying the `.env` file or `docker-compose.yml`:

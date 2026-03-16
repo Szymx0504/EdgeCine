@@ -1,0 +1,25 @@
+# Exclude virtual environments
+venv/
+**/venv/
+app/backend/venv/
+
+# Exclude node modules
+node_modules/
+app/frontend/node_modules/
+
+# Exclude git
+.git/
+.gitignore
+
+# Exclude environment files (Allow .env for the Dockerfile COPY command)
+# .env
+.env.example
+
+# Exclude cache and logs
+__pycache__/
+*.pyc
+*.log
+.pytest_cache/
+
+# Exclude local models if they are already handled by other stages
+# (optional, but keep for now if they are small or needed)

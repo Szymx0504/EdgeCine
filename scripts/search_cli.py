@@ -11,7 +11,7 @@ API_BASE_URL = "http://localhost:8000/films"
 def run_search(query: str, limit: int = 5):
     """Executes a hybrid search via the EdgeCine backend API."""
     print(f"\n" + "="*60)
-    print(f" 🚀 EDGECINE HYBRID ENGINE | Query: '{query}'")
+    print(f" EDGECINE HYBRID ENGINE | Query: '{query}'")
     print("="*60)
 
     try:
@@ -20,7 +20,7 @@ def run_search(query: str, limit: int = 5):
         response = httpx.get(f"{API_BASE_URL}/recommend", params=params, timeout=10.0)
         
         if response.status_code == 404:
-            print("❌ Backend API not found. Is the server running?")
+            print("Error: Backend API not found. Is the server running?")
             return
 
         response.raise_for_status()
@@ -30,8 +30,8 @@ def run_search(query: str, limit: int = 5):
         header_msg = data.get("neural_insight", "Discovery complete.")
         telemetry = data.get("telemetry", {})
 
-        print(f"🤖 AI Insight: {header_msg}")
-        print(f"⏱️  Latency: {telemetry.get('inference_time_ms', 'N/A')}ms | Engine: {telemetry.get('vector_engine')}")
+        print(f"AI Insight: {header_msg}")
+        print(f"Latency: {telemetry.get('inference_time_ms', 'N/A')}ms | Engine: {telemetry.get('vector_engine')}")
         print("-" * 60)
 
         if not results:
@@ -40,20 +40,20 @@ def run_search(query: str, limit: int = 5):
             for i, res in enumerate(results, 1):
                 match_pct = int(res['rank'] * 100)
                 print(f"[{i}] {res['title']} ({res['year']})")
-                print(f"    🔥 {match_pct}% Match | {res.get('type', 'Unknown')}")
-                print(f"    💡 Reason: {res['match_reason']}")
+                print(f"    Match Score: {match_pct}% | {res.get('type', 'Unknown')}")
+                print(f"    Reason: {res['match_reason']}")
                 # Truncate description for terminal readability
                 desc = res['description']
-                print(f"    📝 {desc[:120]}..." if len(desc) > 120 else f"    📝 {desc}")
+                print(f"    Description: {desc[:120]}..." if len(desc) > 120 else f"    Description: {desc}")
                 print("-" * 60)
 
         print(f" Done. Displaying top {len(results)} of k=100 fused candidates.\n")
 
     except httpx.ConnectError:
-        print(f"❌ Connection Error: Could not reach backend at {API_BASE_URL}.")
+        print(f"Error: Connection Error: Could not reach backend at {API_BASE_URL}.")
         print("   Make sure the FastAPI server is running (`npm run dev:backend` or Docker).")
     except Exception as e:
-        print(f"❌ Error occurred: {str(e)}")
+        print(f"Error: An error occurred: {str(e)}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="EdgeCine Professional CLI Search Tool")

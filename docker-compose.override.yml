@@ -10,7 +10,7 @@ services:
     working_dir: /app
     volumes:
       - ./app/frontend:/app
-      - /app/node_modules # Prevents local node_modules from overshadowing container
+      - /app/node_modules
     ports:
       - "8080:5173"
-    command: ["npm", "run", "dev", "--", "--host"]
+    command: sh -c "npm install && npm run dev -- --host"

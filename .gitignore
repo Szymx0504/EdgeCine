@@ -1,22 +1,19 @@
 .env
 venv/
+**/venv/
+app/backend/venv/
 sql/03_seed.sql
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editor/OS
 .vscode
-
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-node_modules
-dist
-dist-ssr
-*.local
-
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -27,3 +24,10 @@ dist-ssr
 *.sln
 *.sw?
 
+# Project specifics
+logs
+*.log
+node_modules
+dist
+dist-ssr
+*.local

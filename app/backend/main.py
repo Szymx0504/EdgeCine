@@ -15,37 +15,41 @@ logger = logging.getLogger("edge-cine-api")
 
 from fastapi.middleware.cors import CORSMiddleware
 
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initialize Infrastructure
+    db.initialize()
+    logger.info("EdgeCine Infrastructure (Database Pool & Neural Engine) Ready.")
+    yield
+    # Shutdown
+    db.close_all()
+
 app = FastAPI(
     title="EdgeCine Neural Search API",
     version="2.0.0-pro",
-    description="High-performance Local Inference Movie Discovery Engine"
+    description="High-performance Local Inference Movie Discovery Engine",
+    lifespan=lifespan
 )
 
+from fastapi.middleware.cors import CORSMiddleware
+
 # Add CORS configuration
-# Note: When allow_credentials=True, allow_origins cannot be ["*"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost",
-        "http://localhost:8080", # New local dev port
-        "http://localhost:5173", # Common Vite port
-        "http://127.0.0.1:5173",
+        "http://localhost:8080", 
         "http://localhost:3000",
+        "http://localhost:5173", 
+        "http://127.0.0.1:5173",
+        "http://localhost:8081", 
     ], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Initialize Infrastructure
-@app.on_event("startup")
-def startup_event():
-    db.initialize()
-    logger.info("EdgeCine Infrastructure (Database Pool & Neural Engine) Ready.")
-
-@app.on_event("shutdown")
-def shutdown_event():
-    db.close_all()
 
 # Register Routers
 app.include_router(films.router)

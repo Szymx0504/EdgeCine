@@ -44,8 +44,6 @@ services:
       context: ./app/frontend
       dockerfile: Dockerfile
     container_name: movie_recommender_frontend
-    ports:
-      - "80:80"
     depends_on:
       - backend
 
